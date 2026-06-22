@@ -298,6 +298,49 @@ export async function iniciarJornadaAction(input: {
   return data as Turno;
 }
 
+export async function actualizarBaseEfectivoAction(input: {
+  domiciliario_id: string;
+  fecha: string;
+  base_efectivo: number;
+}) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión para editar la base.");
+  }
+
+  if (input.base_efectivo <= 0) {
+    throw new Error("La base de efectivo debe ser mayor a cero.");
+  }
+
+  const turno = await getTurnoDelDia(
+    supabase,
+    input.domiciliario_id,
+    input.fecha,
+  );
+
+  if (!turno) {
+    throw new Error("Este domiciliario no tiene jornada iniciada hoy.");
+  }
+
+  const { error } = await supabase
+    .from("turnos")
+    .update({ base_efectivo: input.base_efectivo })
+    .eq("id", turno.id);
+
+  if (error) throw new Error(formatSupabaseError(error.message));
+
+  await sincronizarTurnoConPedidos(
+    supabase,
+    input.domiciliario_id,
+    input.fecha,
+  );
+}
+
 export async function crearDomicilioAction(input: NuevoDomicilioInput) {
   const supabase = await createClient();
 

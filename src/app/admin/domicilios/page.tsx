@@ -12,6 +12,7 @@ import { IniciarJornadaModal } from "@/components/admin/IniciarJornadaModal";
 import { EditDeliveryModal } from "@/components/admin/EditDeliveryModal";
 import { DeletePedidoModal } from "@/components/admin/DeletePedidoModal";
 import { ReiniciarDiaModal } from "@/components/admin/ReiniciarDiaModal";
+import { EditarBaseModal } from "@/components/admin/EditarBaseModal";
 import {
   crearDomicilioAction,
   cuadrarCajaAction,
@@ -20,6 +21,7 @@ import {
   actualizarPedidoAction,
   eliminarPedidoAction,
   reiniciarDiaAction,
+  actualizarBaseEfectivoAction,
 } from "@/app/admin/domicilios/actions";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +46,7 @@ export default function DomiciliosPage() {
     null,
   );
   const [showReiniciarDia, setShowReiniciarDia] = useState(false);
+  const [riderEditarBaseId, setRiderEditarBaseId] = useState<string | null>(null);
   const [filtroDomiciliarioId, setFiltroDomiciliarioId] = useState<string | null>(
     null,
   );
@@ -122,6 +125,10 @@ export default function DomiciliosPage() {
     setRiderIniciarId(riderId);
   }
 
+  function handleEditarBase(riderId: string) {
+    setRiderEditarBaseId(riderId);
+  }
+
   async function handleCuadrarSave(monto: number) {
     if (!riderCuadrarId) return;
     await cuadrarCajaAction({
@@ -136,6 +143,16 @@ export default function DomiciliosPage() {
     if (!riderIniciarId) return;
     await iniciarJornadaAction({
       domiciliario_id: riderIniciarId,
+      fecha,
+      base_efectivo: baseEfectivo,
+    });
+    await cargarDatos();
+  }
+
+  async function handleEditarBaseSave(baseEfectivo: number) {
+    if (!riderEditarBaseId) return;
+    await actualizarBaseEfectivoAction({
+      domiciliario_id: riderEditarBaseId,
       fecha,
       base_efectivo: baseEfectivo,
     });
@@ -166,6 +183,9 @@ export default function DomiciliosPage() {
     : null;
   const riderIniciar = riderIniciarId
     ? riders.find((r) => r.id === riderIniciarId)
+    : null;
+  const riderEditarBase = riderEditarBaseId
+    ? riders.find((r) => r.id === riderEditarBaseId)
     : null;
 
   return (
@@ -307,6 +327,7 @@ export default function DomiciliosPage() {
                   onVerPedidos={handleVerPedidos}
                   onCuadrarCaja={handleCuadrarCaja}
                   onIniciarJornada={handleIniciarJornada}
+                  onEditarBase={handleEditarBase}
                 />
               ))}
               {riders.length === 0 && (
@@ -356,6 +377,14 @@ export default function DomiciliosPage() {
           rider={riderIniciar}
           onClose={() => setRiderIniciarId(null)}
           onSave={handleIniciarSave}
+        />
+      )}
+
+      {riderEditarBase && (
+        <EditarBaseModal
+          rider={riderEditarBase}
+          onClose={() => setRiderEditarBaseId(null)}
+          onSave={handleEditarBaseSave}
         />
       )}
 

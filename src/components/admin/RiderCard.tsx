@@ -6,6 +6,7 @@ interface RiderCardProps {
   onVerPedidos: (riderId: string) => void;
   onCuadrarCaja: (riderId: string) => void;
   onIniciarJornada: (riderId: string) => void;
+  onEditarBase: (riderId: string) => void;
 }
 
 export function RiderCard({
@@ -13,6 +14,7 @@ export function RiderCard({
   onVerPedidos,
   onCuadrarCaja,
   onIniciarJornada,
+  onEditarBase,
 }: RiderCardProps) {
   const totalPedidos = rider.pedidos.length;
   const cuadrado = rider.cuadrado;
@@ -79,7 +81,16 @@ export function RiderCard({
 
           <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
             <span className="text-zinc-400">Base de cambio</span>
-            <span className="font-bold">{formatCOP(rider.baseEfectivo)}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-bold">{formatCOP(rider.baseEfectivo)}</span>
+              <button
+                type="button"
+                onClick={() => onEditarBase(rider.id)}
+                className="rounded-md border border-zinc-600 px-2 py-0.5 text-[10px] font-bold text-zinc-300 hover:border-neon hover:text-neon"
+              >
+                EDITAR
+              </button>
+            </div>
           </div>
 
           <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
