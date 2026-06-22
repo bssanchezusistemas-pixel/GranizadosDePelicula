@@ -1,20 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
-  Domiciliario,
+  DomiciliarioConResumen,
   Canal,
   FormaPago,
   PedidoDomicilio,
   EditarPedidoInput,
 } from "@/data/domicilios";
-import { calcularDevuelta } from "@/data/domicilios";
+import { calcularDevuelta, trabajaSinBase } from "@/data/domicilios";
 import { formatCOP } from "@/lib/currency";
 import { CurrencyInput } from "@/components/admin/CurrencyInput";
 
 interface EditDeliveryModalProps {
   pedido: PedidoDomicilio;
-  domiciliarios: Domiciliario[];
+  domiciliarios: DomiciliarioConResumen[];
   numerosPedidoUsados: string[];
   onClose: () => void;
   onSave: (input: EditarPedidoInput) => Promise<void>;
@@ -57,20 +57,34 @@ export function EditDeliveryModal({
   const numeroDuplicado =
     numeroPedido.trim() !== "" && numerosUsadosSet.has(numeroPedido.trim());
 
+  const domiciliarioSeleccionado = domiciliarios.find(
+    (d) => d.id === domiciliarioId,
+  );
+  const sinBase = domiciliarioSeleccionado
+    ? trabajaSinBase(domiciliarioSeleccionado.baseEfectivo)
+    : false;
+  const requierePagaCon = sinBase && formaPago === "efectivo";
+
+  useEffect(() => {
+    if (sinBase) {
+      setRegistrarCambio(true);
+    }
+  }, [sinBase, domiciliarioId]);
+
   const devuelta = useMemo(
     () =>
-      registrarCambio
+      registrarCambio || sinBase
         ? calcularDevuelta({
             forma_pago: formaPago,
             valor_pedido: valorPedido,
             paga_con: pagaCon,
           })
         : null,
-    [formaPago, valorPedido, pagaCon, registrarCambio],
+    [formaPago, valorPedido, pagaCon, registrarCambio, sinBase],
   );
 
   const pagaConInsuficiente =
-    registrarCambio &&
+    (registrarCambio || requierePagaCon) &&
     formaPago === "efectivo" &&
     pagaCon > 0 &&
     pagaCon < valorPedido;
@@ -80,9 +94,11 @@ export function EditDeliveryModal({
     !numeroDuplicado &&
     domiciliarioId !== null &&
     valorPedido > 0 &&
-    (!registrarCambio ||
-      formaPago === "transferencia" ||
-      (pagaCon > 0 && !pagaConInsuficiente));
+    (!requierePagaCon
+      ? !registrarCambio ||
+        formaPago === "transferencia" ||
+        (pagaCon > 0 && !pagaConInsuficiente)
+      : pagaCon > 0 && !pagaConInsuficiente);
 
   async function handleSave() {
     if (!puedeGuardar || !domiciliarioId) return;
@@ -99,7 +115,7 @@ export function EditDeliveryModal({
         valor_pedido: valorPedido,
         forma_pago: formaPago,
         paga_con:
-          formaPago === "efectivo" && registrarCambio && pagaCon > 0
+          formaPago === "efectivo" && (registrarCambio || sinBase) && pagaCon > 0
             ? pagaCon
             : undefined,
       });
@@ -224,27 +240,34 @@ export function EditDeliveryModal({
 
           {formaPago === "efectivo" && (
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={registrarCambio}
-                  onChange={(e) => {
-                    setRegistrarCambio(e.target.checked);
-                    if (!e.target.checked) setPagaCon(0);
-                  }}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-600 accent-[#ff0033]"
-                />
-                <div>
-                  <span className="text-sm font-bold text-white">
-                    Registrar cambio del cliente
-                  </span>
-                  <p className="mt-1 text-[11px] text-zinc-500">
-                    Opcional — para anotar billete y cambio a devolver.
-                  </p>
-                </div>
-              </label>
+              {sinBase && (
+                <p className="mb-4 rounded-lg border border-amber-700/40 bg-amber-900/15 px-3 py-2 text-[11px] text-amber-200">
+                  Sin base: registra con cuánto paga el cliente.
+                </p>
+              )}
+              {!sinBase && (
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={registrarCambio}
+                    onChange={(e) => {
+                      setRegistrarCambio(e.target.checked);
+                      if (!e.target.checked) setPagaCon(0);
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-600 accent-[#ff0033]"
+                  />
+                  <div>
+                    <span className="text-sm font-bold text-white">
+                      Registrar cambio del cliente
+                    </span>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Opcional — para anotar billete y cambio a devolver.
+                    </p>
+                  </div>
+                </label>
+              )}
 
-              {registrarCambio && (
+              {(registrarCambio || sinBase) && (
                 <div className="mt-4 border-t border-zinc-800 pt-4">
                   <label className="mb-2.5 block text-[11px] font-bold uppercase tracking-wide text-zinc-400">
                     ¿Con cuánto paga el cliente? <span className="text-neon">*</span>
@@ -264,7 +287,8 @@ export function EditDeliveryModal({
                   )}
                   {devuelta !== null && devuelta > 0 && pagaCon > 0 && (
                     <p className="mt-2 text-xs text-amber-400">
-                      Cambio: {formatCOP(devuelta)}
+                      {sinBase ? "Solo dinero de las devueltas" : "Cambio"}:{" "}
+                      {formatCOP(devuelta)}
                     </p>
                   )}
                 </div>

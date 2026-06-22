@@ -83,6 +83,7 @@ export default function DomiciliosPage() {
   const pedidosVisibles = filtroDomiciliarioId
     ? todosPedidos.filter((p) => p.domiciliario_id === filtroDomiciliarioId)
     : todosPedidos;
+  const algunSinBase = riders.some((r) => r.sinBase);
   const domiciliarioFiltrado = filtroDomiciliarioId
     ? riders.find((r) => r.id === filtroDomiciliarioId)
     : null;
@@ -301,7 +302,11 @@ export default function DomiciliosPage() {
               <MetricCard
                 label="Debe entregar"
                 value={formatCOP(debeEntregarTotal)}
-                sub="base + ventas efectivo"
+                sub={
+                  algunSinBase
+                    ? "base + ventas o cobro clientes"
+                    : "base + ventas efectivo"
+                }
               />
               <MetricCard
                 label="Ya entregado"

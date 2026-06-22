@@ -43,8 +43,11 @@ export interface DomiciliarioConResumen extends Domiciliario {
   turnoId: string | null;
   jornadaIniciada: boolean;
   pedidos: PedidoDomicilio[];
+  sinBase: boolean;
   baseEfectivo: number;
   ventasEfectivo: number;
+  cobroEfectivo: number;
+  devueltasEfectivo: number;
   debeEntregar: number;
   efectivoEntregado: number;
   cuadrado: boolean;
@@ -52,6 +55,11 @@ export interface DomiciliarioConResumen extends Domiciliario {
   enCamino: number;
   diferencia: number;
 }
+
+export type PedidoEfectivoCalculo = Pick<
+  PedidoDomicilio,
+  "forma_pago" | "valor_pedido" | "paga_con" | "devuelta"
+>;
 
 export interface NuevoDomicilioInput {
   numero_pedido: string;
@@ -77,6 +85,10 @@ export function calcularDevuelta(
   return devuelta >= 0 ? devuelta : null;
 }
 
+export function trabajaSinBase(baseEfectivo: number): boolean {
+  return baseEfectivo === 0;
+}
+
 export function calcularVentasEfectivo(
   pedidos: Pick<PedidoDomicilio, "forma_pago" | "valor_pedido">[],
 ): number {
@@ -85,9 +97,28 @@ export function calcularVentasEfectivo(
     .reduce((sum, p) => sum + Number(p.valor_pedido), 0);
 }
 
+/** Total cobrado al cliente en efectivo (paga_con o valor si paga exacto). */
+export function calcularCobroEfectivo(pedidos: PedidoEfectivoCalculo[]): number {
+  return pedidos
+    .filter((p) => p.forma_pago === "efectivo")
+    .reduce((sum, p) => sum + Number(p.paga_con ?? p.valor_pedido), 0);
+}
+
+/** Suma de cambio devuelto en pedidos en efectivo. */
+export function calcularDevueltasEfectivo(
+  pedidos: PedidoEfectivoCalculo[],
+): number {
+  return pedidos
+    .filter((p) => p.forma_pago === "efectivo")
+    .reduce((sum, p) => sum + Number(p.devuelta ?? 0), 0);
+}
+
 export function calcularDebeEntregar(
   baseEfectivo: number,
-  pedidos: Pick<PedidoDomicilio, "forma_pago" | "valor_pedido">[],
+  pedidos: PedidoEfectivoCalculo[],
 ): number {
+  if (trabajaSinBase(baseEfectivo)) {
+    return calcularCobroEfectivo(pedidos);
+  }
   return baseEfectivo + calcularVentasEfectivo(pedidos);
 }

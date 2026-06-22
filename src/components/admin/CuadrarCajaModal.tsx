@@ -28,6 +28,7 @@ export function CuadrarCajaModal({
   const quedaCuadrado = monto > 0 && quedaPendiente === 0;
 
   const pedidosEfectivo = rider.pedidos.filter((p) => p.forma_pago === "efectivo");
+  const sinBase = rider.sinBase;
 
   async function handleSave() {
     if (monto <= 0) return;
@@ -68,28 +69,57 @@ export function CuadrarCajaModal({
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
             <p className="text-sm font-bold">{rider.nombre} — Cierre del día</p>
             <div className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between text-zinc-400">
-                <span>Base inicial</span>
-                <span className="font-bold text-white">
-                  {formatCOP(rider.baseEfectivo)}
-                </span>
-              </div>
-              <div className="flex justify-between text-zinc-400">
-                <span>+ Ventas netas (valor comanda)</span>
-                <span className="font-bold text-white">
-                  {formatCOP(rider.ventasEfectivo)}
-                </span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-zinc-600">
-                Se suma el valor del pedido, no el billete del cliente. El cambio
-                ya se descontó.
-              </p>
-              <div className="flex justify-between border-t border-zinc-800 pt-2 text-zinc-300">
-                <span className="font-bold">= Debe entregar</span>
-                <span className="font-black text-neon">
-                  {formatCOP(rider.debeEntregar)}
-                </span>
-              </div>
+              {sinBase ? (
+                <>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Ventas netas (valor comanda)</span>
+                    <span className="font-bold text-white">
+                      {formatCOP(rider.ventasEfectivo)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-amber-200/90">
+                    <span>Solo dinero de las devueltas</span>
+                    <span className="font-bold text-amber-300">
+                      {formatCOP(rider.devueltasEfectivo)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-zinc-600">
+                    Sin base, la tienda prestó el cambio por pedido. Al cerrar el
+                    domiciliario entrega lo que cobró el cliente.
+                  </p>
+                  <div className="flex justify-between border-t border-zinc-800 pt-2 text-zinc-300">
+                    <span className="font-bold">= Debe entregar (cobro clientes)</span>
+                    <span className="font-black text-neon">
+                      {formatCOP(rider.debeEntregar)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Base inicial</span>
+                    <span className="font-bold text-white">
+                      {formatCOP(rider.baseEfectivo)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>+ Ventas netas (valor comanda)</span>
+                    <span className="font-bold text-white">
+                      {formatCOP(rider.ventasEfectivo)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-zinc-600">
+                    Se suma el valor del pedido, no el billete del cliente. El
+                    cambio ya se descontó de la base.
+                  </p>
+                  <div className="flex justify-between border-t border-zinc-800 pt-2 text-zinc-300">
+                    <span className="font-bold">= Debe entregar</span>
+                    <span className="font-black text-neon">
+                      {formatCOP(rider.debeEntregar)}
+                    </span>
+                  </div>
+                </>
+              )}
               {rider.efectivoEntregado > 0 && (
                 <div className="flex justify-between text-zinc-400">
                   <span>Ya entregó</span>
@@ -132,11 +162,24 @@ export function CuadrarCajaModal({
                 ))}
               </ul>
               <p className="mt-2 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
-                Total ventas: {formatCOP(rider.ventasEfectivo)} — no se suman los{" "}
-                {formatCOP(
-                  pedidosEfectivo.reduce((s, p) => s + Number(p.paga_con ?? 0), 0),
-                )}{" "}
-                que pagaron los clientes porque parte fue cambio.
+                {sinBase ? (
+                  <>
+                    Total cobro clientes: {formatCOP(rider.cobroEfectivo)} — ventas{" "}
+                    {formatCOP(rider.ventasEfectivo)} + devueltas{" "}
+                    {formatCOP(rider.devueltasEfectivo)}.
+                  </>
+                ) : (
+                  <>
+                    Total ventas: {formatCOP(rider.ventasEfectivo)} — no se suman los{" "}
+                    {formatCOP(
+                      pedidosEfectivo.reduce(
+                        (s, p) => s + Number(p.paga_con ?? 0),
+                        0,
+                      ),
+                    )}{" "}
+                    que pagaron los clientes porque parte fue cambio.
+                  </>
+                )}
               </p>
             </div>
           )}

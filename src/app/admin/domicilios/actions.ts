@@ -14,6 +14,9 @@ import {
   calcularDevuelta,
   calcularDebeEntregar,
   calcularVentasEfectivo,
+  calcularCobroEfectivo,
+  calcularDevueltasEfectivo,
+  trabajaSinBase,
 } from "@/data/domicilios";
 
 function normalizeNumeroPedido(numero: string): string {
@@ -149,7 +152,10 @@ function buildResumenDomiciliario(
 ): DomiciliarioConResumen {
   const jornadaIniciada = turno != null;
   const baseEfectivo = Number(turno?.base_efectivo ?? 0);
+  const sinBase = jornadaIniciada && trabajaSinBase(baseEfectivo);
   const ventasEfectivo = calcularVentasEfectivo(pedidosDelDom);
+  const cobroEfectivo = calcularCobroEfectivo(pedidosDelDom);
+  const devueltasEfectivo = calcularDevueltasEfectivo(pedidosDelDom);
   const debeEntregar = jornadaIniciada
     ? calcularDebeEntregar(baseEfectivo, pedidosDelDom)
     : 0;
@@ -168,8 +174,11 @@ function buildResumenDomiciliario(
     turnoId: turno?.id ?? null,
     jornadaIniciada,
     pedidos: pedidosDelDom,
+    sinBase,
     baseEfectivo,
     ventasEfectivo,
+    cobroEfectivo,
+    devueltasEfectivo,
     debeEntregar,
     efectivoEntregado,
     cuadrado,
@@ -267,8 +276,8 @@ export async function iniciarJornadaAction(input: {
     throw new Error("Debes iniciar sesión para abrir la jornada.");
   }
 
-  if (input.base_efectivo <= 0) {
-    throw new Error("La base de efectivo debe ser mayor a cero.");
+  if (input.base_efectivo < 0) {
+    throw new Error("La base de efectivo no puede ser negativa.");
   }
 
   const turnoExistente = await getTurnoDelDia(
@@ -313,8 +322,8 @@ export async function actualizarBaseEfectivoAction(input: {
     throw new Error("Debes iniciar sesión para editar la base.");
   }
 
-  if (input.base_efectivo <= 0) {
-    throw new Error("La base de efectivo debe ser mayor a cero.");
+  if (input.base_efectivo < 0) {
+    throw new Error("La base de efectivo no puede ser negativa.");
   }
 
   const turno = await getTurnoDelDia(
@@ -341,6 +350,25 @@ export async function actualizarBaseEfectivoAction(input: {
   );
 }
 
+function validarPagoEfectivoSinBase(
+  baseEfectivo: number,
+  input: Pick<NuevoDomicilioInput, "forma_pago" | "valor_pedido" | "paga_con">,
+) {
+  if (input.forma_pago !== "efectivo" || !trabajaSinBase(baseEfectivo)) {
+    return;
+  }
+
+  if (input.paga_con == null || input.paga_con <= 0) {
+    throw new Error(
+      "Sin base de cambio debes registrar con cuánto paga el cliente.",
+    );
+  }
+
+  if (input.paga_con < input.valor_pedido) {
+    throw new Error("El pago del cliente no cubre el valor del pedido.");
+  }
+}
+
 export async function crearDomicilioAction(input: NuevoDomicilioInput) {
   const supabase = await createClient();
 
@@ -364,6 +392,7 @@ export async function crearDomicilioAction(input: NuevoDomicilioInput) {
 
   const numeroPedido = normalizeNumeroPedido(input.numero_pedido);
   await assertNumeroPedidoDisponible(supabase, numeroPedido);
+  validarPagoEfectivoSinBase(Number(turno.base_efectivo ?? 0), input);
 
   const devuelta = calcularDevuelta(input);
 
@@ -483,6 +512,8 @@ export async function actualizarPedidoAction(input: EditarPedidoInput) {
       "El domiciliario seleccionado no tiene jornada iniciada hoy.",
     );
   }
+
+  validarPagoEfectivoSinBase(Number(turno.base_efectivo ?? 0), input);
 
   const devuelta = calcularDevuelta(input);
 

@@ -10,6 +10,9 @@ import {
   calcularDevuelta,
   calcularDebeEntregar,
   calcularVentasEfectivo,
+  calcularCobroEfectivo,
+  calcularDevueltasEfectivo,
+  trabajaSinBase,
 } from "@/data/domicilios";
 
 export async function getResumenDomiciliariosDelDia(
@@ -49,7 +52,10 @@ export async function getResumenDomiciliariosDelDia(
 
     const jornadaIniciada = turno != null;
     const baseEfectivo = Number(turno?.base_efectivo ?? 0);
+    const sinBase = jornadaIniciada && trabajaSinBase(baseEfectivo);
     const ventasEfectivo = calcularVentasEfectivo(pedidosDelDom);
+    const cobroEfectivo = calcularCobroEfectivo(pedidosDelDom);
+    const devueltasEfectivo = calcularDevueltasEfectivo(pedidosDelDom);
     const debeEntregar = jornadaIniciada
       ? calcularDebeEntregar(baseEfectivo, pedidosDelDom)
       : 0;
@@ -68,8 +74,11 @@ export async function getResumenDomiciliariosDelDia(
       turnoId: turno?.id ?? null,
       jornadaIniciada,
       pedidos: pedidosDelDom,
+      sinBase,
       baseEfectivo,
       ventasEfectivo,
+      cobroEfectivo,
+      devueltasEfectivo,
       debeEntregar,
       efectivoEntregado,
       cuadrado,

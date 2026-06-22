@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Domiciliario, Canal, FormaPago } from "@/data/domicilios";
-import { calcularDevuelta } from "@/data/domicilios";
+import { useEffect, useMemo, useState } from "react";
+import type { DomiciliarioConResumen, Canal, FormaPago } from "@/data/domicilios";
+import { calcularDevuelta, trabajaSinBase } from "@/data/domicilios";
 import { formatCOP } from "@/lib/currency";
 import { CurrencyInput } from "@/components/admin/CurrencyInput";
 
 interface NewDeliveryModalProps {
-  domiciliarios: Domiciliario[];
+  domiciliarios: DomiciliarioConResumen[];
   numerosPedidoUsados: string[];
   onClose: () => void;
   onSave: (input: {
@@ -47,20 +47,34 @@ export function NewDeliveryModal({
   const numeroDuplicado =
     numeroPedido.trim() !== "" && numerosUsadosSet.has(numeroPedido.trim());
 
+  const domiciliarioSeleccionado = domiciliarios.find(
+    (d) => d.id === domiciliarioId,
+  );
+  const sinBase = domiciliarioSeleccionado
+    ? trabajaSinBase(domiciliarioSeleccionado.baseEfectivo)
+    : false;
+  const requierePagaCon = sinBase && formaPago === "efectivo";
+
+  useEffect(() => {
+    if (sinBase) {
+      setRegistrarCambio(true);
+    }
+  }, [sinBase, domiciliarioId]);
+
   const devuelta = useMemo(
     () =>
-      registrarCambio
+      registrarCambio || sinBase
         ? calcularDevuelta({
             forma_pago: formaPago,
             valor_pedido: valorPedido,
             paga_con: pagaCon,
           })
         : null,
-    [formaPago, valorPedido, pagaCon, registrarCambio],
+    [formaPago, valorPedido, pagaCon, registrarCambio, sinBase],
   );
 
   const pagaConInsuficiente =
-    registrarCambio &&
+    (registrarCambio || requierePagaCon) &&
     formaPago === "efectivo" &&
     pagaCon > 0 &&
     pagaCon < valorPedido;
@@ -70,9 +84,11 @@ export function NewDeliveryModal({
     !numeroDuplicado &&
     domiciliarioId !== null &&
     valorPedido > 0 &&
-    (!registrarCambio ||
-      formaPago === "transferencia" ||
-      (pagaCon > 0 && !pagaConInsuficiente));
+    (!requierePagaCon
+      ? !registrarCambio ||
+        formaPago === "transferencia" ||
+        (pagaCon > 0 && !pagaConInsuficiente)
+      : pagaCon > 0 && !pagaConInsuficiente);
 
   async function handleSave() {
     if (!puedeGuardar || !domiciliarioId) return;
@@ -88,7 +104,7 @@ export function NewDeliveryModal({
         valor_pedido: valorPedido,
         forma_pago: formaPago,
         paga_con:
-          formaPago === "efectivo" && registrarCambio && pagaCon > 0
+          formaPago === "efectivo" && (registrarCambio || sinBase) && pagaCon > 0
             ? pagaCon
             : undefined,
       });
@@ -101,10 +117,6 @@ export function NewDeliveryModal({
       setSaving(false);
     }
   }
-
-  const domiciliarioSeleccionado = domiciliarios.find(
-    (d) => d.id === domiciliarioId,
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -268,28 +280,36 @@ export function NewDeliveryModal({
 
           {formaPago === "efectivo" && (
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={registrarCambio}
-                  onChange={(e) => {
-                    setRegistrarCambio(e.target.checked);
-                    if (!e.target.checked) setPagaCon(0);
-                  }}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-600 accent-[#ff0033]"
-                />
-                <div>
-                  <span className="text-sm font-bold text-white">
-                    Registrar cambio del cliente
-                  </span>
-                  <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                    Opcional. Actívalo si el cliente paga con billete grande o si
-                    necesitas anotar cuánto cambio llevar (útil con varios pedidos).
-                  </p>
-                </div>
-              </label>
+              {sinBase && (
+                <p className="mb-4 rounded-lg border border-amber-700/40 bg-amber-900/15 px-3 py-2 text-[11px] text-amber-200">
+                  Sin base de cambio: debes registrar con cuánto paga el cliente
+                  para calcular la devuelta que presta la tienda.
+                </p>
+              )}
+              {!sinBase && (
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={registrarCambio}
+                    onChange={(e) => {
+                      setRegistrarCambio(e.target.checked);
+                      if (!e.target.checked) setPagaCon(0);
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-600 accent-[#ff0033]"
+                  />
+                  <div>
+                    <span className="text-sm font-bold text-white">
+                      Registrar cambio del cliente
+                    </span>
+                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                      Opcional. Actívalo si el cliente paga con billete grande o
+                      si necesitas anotar cuánto cambio llevar.
+                    </p>
+                  </div>
+                </label>
+              )}
 
-              {registrarCambio && (
+              {(registrarCambio || sinBase) && (
                 <div className="mt-4 border-t border-zinc-800 pt-4">
                   <label className="mb-2.5 block text-[11px] font-bold uppercase tracking-wide text-zinc-400">
                     ¿Con cuánto paga el cliente? <span className="text-neon">*</span>
@@ -314,7 +334,9 @@ export function NewDeliveryModal({
                     <div className="mt-3 flex items-center justify-between rounded-lg border border-amber-700/40 bg-amber-900/10 px-4 py-4">
                       <div>
                         <p className="text-xs font-bold text-amber-400">
-                          DEBE LLEVAR CAMBIO
+                          {sinBase
+                            ? "SOLO DINERO DE LAS DEVUELTAS"
+                            : "DEBE LLEVAR CAMBIO"}
                         </p>
                         <p className="mt-0.5 text-[11px] text-zinc-500">
                           {formatCOP(pagaCon)} − {formatCOP(valorPedido)} = devuelta
@@ -372,19 +394,33 @@ export function NewDeliveryModal({
                 value={formaPago === "efectivo" ? "Efectivo" : "Transferencia"}
               />
               <SummaryRow label="Valor del pedido" value={formatCOP(valorPedido)} />
-              {formaPago === "efectivo" && registrarCambio && pagaCon > 0 && (
+              {formaPago === "efectivo" && (registrarCambio || sinBase) && pagaCon > 0 && (
                 <>
                   <SummaryRow label="Cliente paga con" value={formatCOP(pagaCon)} />
                   <SummaryRow
-                    label="Debe llevar de cambio"
+                    label={
+                      sinBase ? "Solo dinero de las devueltas" : "Debe llevar de cambio"
+                    }
                     value={formatCOP(devuelta ?? 0)}
                   />
                 </>
               )}
-              {formaPago === "efectivo" && valorPedido > 0 && (
+              {formaPago === "efectivo" && sinBase && pagaCon > 0 && (
+                <SummaryRow
+                  label="Debe entregar al cierre"
+                  value={formatCOP(pagaCon)}
+                />
+              )}
+              {formaPago === "efectivo" && !sinBase && !registrarCambio && (
                 <p className="mt-2 border-t border-zinc-800 pt-3 text-[11px] text-zinc-500">
                   Al cierre del día suma {formatCOP(valorPedido)} a las ventas en
                   efectivo (base + ventas).
+                </p>
+              )}
+              {formaPago === "efectivo" && sinBase && pagaCon > 0 && (
+                <p className="mt-2 border-t border-zinc-800 pt-3 text-[11px] text-zinc-500">
+                  Al cierre suma {formatCOP(pagaCon)} (cobro del cliente), no solo{" "}
+                  {formatCOP(valorPedido)} de venta.
                 </p>
               )}
               {formaPago === "transferencia" && (

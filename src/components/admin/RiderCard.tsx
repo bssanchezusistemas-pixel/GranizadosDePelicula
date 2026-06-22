@@ -82,7 +82,9 @@ export function RiderCard({
           <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
             <span className="text-zinc-400">Base de cambio</span>
             <div className="flex items-center gap-2">
-              <span className="font-bold">{formatCOP(rider.baseEfectivo)}</span>
+              <span className="font-bold">
+                {rider.sinBase ? "Sin base" : formatCOP(rider.baseEfectivo)}
+              </span>
               <button
                 type="button"
                 onClick={() => onEditarBase(rider.id)}
@@ -93,10 +95,31 @@ export function RiderCard({
             </div>
           </div>
 
-          <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
-            <span className="text-zinc-400">Ventas netas (comanda)</span>
-            <span className="font-bold">{formatCOP(rider.ventasEfectivo)}</span>
-          </div>
+          {rider.sinBase ? (
+            <>
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
+                <span className="text-zinc-400">Ventas netas (comanda)</span>
+                <span className="font-bold">{formatCOP(rider.ventasEfectivo)}</span>
+              </div>
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-900/15 px-3.5 py-3 text-sm">
+                <span className="text-amber-200/90">Solo dinero de las devueltas</span>
+                <span className="font-bold text-amber-300">
+                  {formatCOP(rider.devueltasEfectivo)}
+                </span>
+              </div>
+              <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
+                <span className="text-zinc-400">Cobro de clientes</span>
+                <span className="font-bold text-neon">
+                  {formatCOP(rider.cobroEfectivo)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
+              <span className="text-zinc-400">Ventas netas (comanda)</span>
+              <span className="font-bold">{formatCOP(rider.ventasEfectivo)}</span>
+            </div>
+          )}
 
           <div className="mb-2 flex items-center justify-between rounded-lg bg-zinc-800/60 px-3.5 py-3 text-sm">
             <span className="text-zinc-400">Debe entregar</span>
