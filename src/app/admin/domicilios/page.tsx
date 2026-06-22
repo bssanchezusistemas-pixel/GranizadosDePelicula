@@ -11,6 +11,7 @@ import { CuadrarCajaModal } from "@/components/admin/CuadrarCajaModal";
 import { IniciarJornadaModal } from "@/components/admin/IniciarJornadaModal";
 import { EditDeliveryModal } from "@/components/admin/EditDeliveryModal";
 import { DeletePedidoModal } from "@/components/admin/DeletePedidoModal";
+import { ReiniciarDiaModal } from "@/components/admin/ReiniciarDiaModal";
 import {
   crearDomicilioAction,
   cuadrarCajaAction,
@@ -18,6 +19,7 @@ import {
   iniciarJornadaAction,
   actualizarPedidoAction,
   eliminarPedidoAction,
+  reiniciarDiaAction,
 } from "@/app/admin/domicilios/actions";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/client";
@@ -41,6 +43,7 @@ export default function DomiciliosPage() {
   const [pedidoEliminar, setPedidoEliminar] = useState<PedidoDomicilio | null>(
     null,
   );
+  const [showReiniciarDia, setShowReiniciarDia] = useState(false);
   const [filtroDomiciliarioId, setFiltroDomiciliarioId] = useState<string | null>(
     null,
   );
@@ -152,6 +155,12 @@ export default function DomiciliosPage() {
     await cargarDatos();
   }
 
+  async function handleReiniciarDiaConfirm() {
+    await reiniciarDiaAction(fecha);
+    setFiltroDomiciliarioId(null);
+    await cargarDatos();
+  }
+
   const riderCuadrar = riderCuadrarId
     ? riders.find((r) => r.id === riderCuadrarId)
     : null;
@@ -195,6 +204,17 @@ export default function DomiciliosPage() {
                 })
                 .toUpperCase()}
             </div>
+            <button
+              type="button"
+              onClick={() => setShowReiniciarDia(true)}
+              disabled={
+                !configured ||
+                (totalDomicilios === 0 && domiciliariosConJornada.length === 0)
+              }
+              className="rounded-full border border-amber-700/50 px-5 py-2 text-xs font-bold text-amber-300 hover:border-amber-500 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+            >
+              REINICIAR DÍA
+            </button>
             <button
               type="button"
               onClick={() => setShowModal(true)}
@@ -354,6 +374,15 @@ export default function DomiciliosPage() {
           pedido={pedidoEliminar}
           onClose={() => setPedidoEliminar(null)}
           onConfirm={handleEliminarConfirm}
+        />
+      )}
+
+      {showReiniciarDia && (
+        <ReiniciarDiaModal
+          totalPedidos={totalDomicilios}
+          domiciliariosEnTurno={domiciliariosConJornada.length}
+          onClose={() => setShowReiniciarDia(false)}
+          onConfirm={handleReiniciarDiaConfirm}
         />
       )}
     </div>

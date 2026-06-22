@@ -72,6 +72,76 @@ async function getTurnoDelDia(
   return data as Turno | null;
 }
 
+async function getPedidosDelDomiciliarioEnFecha(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  domiciliarioId: string,
+  fecha: string,
+) {
+  const { inicio, fin } = rangoDiaBogota(fecha);
+
+  const { data, error } = await supabase
+    .from("pedidos_domicilio")
+    .select("*")
+    .eq("domiciliario_id", domiciliarioId)
+    .gte("creado_en", inicio)
+    .lte("creado_en", fin);
+
+  if (error) throw new Error(error.message);
+  return (data as PedidoDomicilio[]) ?? [];
+}
+
+/** Ajusta efectivo_entregado y cuadrado cuando cambian los pedidos del día. */
+async function sincronizarTurnoConPedidos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  domiciliarioId: string,
+  fecha: string,
+) {
+  const turno = await getTurnoDelDia(supabase, domiciliarioId, fecha);
+  if (!turno) return null;
+
+  const pedidos = await getPedidosDelDomiciliarioEnFecha(
+    supabase,
+    domiciliarioId,
+    fecha,
+  );
+  const baseEfectivo = Number(turno.base_efectivo ?? 0);
+  const debeEntregar = calcularDebeEntregar(baseEfectivo, pedidos);
+  let efectivoEntregado = Number(turno.efectivo_entregado ?? 0);
+
+  if (efectivoEntregado > debeEntregar) {
+    efectivoEntregado = debeEntregar;
+  }
+
+  const cuadrado = efectivoEntregado >= debeEntregar;
+  const entregadoPrevio = Number(turno.efectivo_entregado ?? 0);
+  const cuadradoPrevio = Boolean(turno.cuadrado);
+  const necesitaActualizar =
+    entregadoPrevio !== efectivoEntregado ||
+    cuadradoPrevio !== cuadrado ||
+    (cuadrado && !turno.hora_fin) ||
+    (!cuadrado && turno.hora_fin);
+
+  if (!necesitaActualizar) {
+    return turno;
+  }
+
+  const { data, error } = await supabase
+    .from("turnos")
+    .update({
+      efectivo_entregado: efectivoEntregado,
+      cuadrado,
+      hora_fin: cuadrado
+        ? (turno.hora_fin ?? new Date().toISOString())
+        : null,
+    })
+    .eq("id", turno.id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Turno;
+}
+
 function buildResumenDomiciliario(
   dom: Domiciliario,
   pedidosDelDom: PedidoDomicilio[],
@@ -154,17 +224,32 @@ export async function getResumenDomiciliariosAction(
     );
   }
 
-  return (domiciliarios as Domiciliario[]).map((dom) => {
+  const resumen: DomiciliarioConResumen[] = [];
+
+  for (const dom of domiciliarios as Domiciliario[]) {
     const pedidosDelDom =
       (pedidos as PedidoDomicilio[] | null)?.filter(
         (p) => p.domiciliario_id === dom.id,
       ) ?? [];
-    const turno = turnos?.find((t) => t.domiciliario_id === dom.id) as
+    let turno = turnos?.find((t) => t.domiciliario_id === dom.id) as
       | Turno
       | undefined;
 
-    return buildResumenDomiciliario(dom, pedidosDelDom, turno);
-  });
+    if (turno) {
+      const turnoSincronizado = await sincronizarTurnoConPedidos(
+        supabase,
+        dom.id,
+        fecha,
+      );
+      if (turnoSincronizado) {
+        turno = turnoSincronizado;
+      }
+    }
+
+    resumen.push(buildResumenDomiciliario(dom, pedidosDelDom, turno));
+  }
+
+  return resumen;
 }
 
 export async function iniciarJornadaAction(input: {
@@ -385,6 +470,8 @@ export async function actualizarPedidoAction(input: EditarPedidoInput) {
     throw new Error(error.message);
   }
 
+  await sincronizarTurnoConPedidos(supabase, input.domiciliario_id, fecha);
+
   return data as PedidoDomicilio;
 }
 
@@ -399,10 +486,61 @@ export async function eliminarPedidoAction(pedidoId: string) {
     throw new Error("Debes iniciar sesión para eliminar pedidos.");
   }
 
+  const { data: pedido, error: errPedido } = await supabase
+    .from("pedidos_domicilio")
+    .select("domiciliario_id")
+    .eq("id", pedidoId)
+    .maybeSingle();
+
+  if (errPedido) throw new Error(errPedido.message);
+  if (!pedido?.domiciliario_id) {
+    throw new Error("Pedido no encontrado.");
+  }
+
   const { error } = await supabase
     .from("pedidos_domicilio")
     .delete()
     .eq("id", pedidoId);
 
   if (error) throw new Error(error.message);
+
+  const fecha = fechaHoyBogota();
+  await sincronizarTurnoConPedidos(
+    supabase,
+    pedido.domiciliario_id,
+    fecha,
+  );
+}
+
+export async function reiniciarDiaAction(fecha: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Debes iniciar sesión para reiniciar el día.");
+  }
+
+  const { inicio, fin } = rangoDiaBogota(fecha);
+
+  const { error: errPedidos } = await supabase
+    .from("pedidos_domicilio")
+    .delete()
+    .gte("creado_en", inicio)
+    .lte("creado_en", fin);
+
+  if (errPedidos) throw new Error(errPedidos.message);
+
+  const { error: errTurnos } = await supabase
+    .from("turnos")
+    .update({
+      efectivo_entregado: 0,
+      cuadrado: false,
+      hora_fin: null,
+    })
+    .eq("fecha", fecha);
+
+  if (errTurnos) throw new Error(errTurnos.message);
 }

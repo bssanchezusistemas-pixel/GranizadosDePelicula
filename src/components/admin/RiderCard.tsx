@@ -108,8 +108,8 @@ export function RiderCard({
               className={`font-bold ${cuadrado ? "text-emerald-400" : "text-red-400"}`}
             >
               {cuadrado
-                ? `${formatCOP(rider.debeEntregar)} · cuadrado ✓`
-                : `faltan ${formatCOP(Math.max(rider.diferencia, 0))}`}
+                ? `${formatCOP(rider.efectivoEntregado)} · cuadrado ✓`
+                : `${formatCOP(rider.efectivoEntregado)} · faltan ${formatCOP(Math.max(rider.diferencia, 0))}`}
             </span>
           </div>
         </>
