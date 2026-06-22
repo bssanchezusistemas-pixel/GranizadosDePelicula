@@ -1,0 +1,263 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { BUSINESS, buildWhatsAppUrl } from "@/data/menu";
+import {
+  buildFrameSequence,
+  getFrameStep,
+  getFrameUrl,
+  HERO_BG,
+} from "@/data/heroFrames";
+
+function fitCanvas(
+  canvas: HTMLCanvasElement,
+  img: HTMLImageElement,
+  dpr: number,
+) {
+  const parent = canvas.parentElement;
+  if (!parent) return;
+
+  const maxW = parent.clientWidth;
+  const maxH = parent.clientHeight;
+
+  canvas.width = maxW * dpr;
+  canvas.height = maxH * dpr;
+  canvas.style.width = `${maxW}px`;
+  canvas.style.height = `${maxH}px`;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, maxW, maxH);
+
+  const scale = Math.max(maxW / img.naturalWidth, maxH / img.naturalHeight);
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  const x = (maxW - w) / 2;
+  const y = (maxH - h) / 2;
+
+  ctx.drawImage(img, x, y, w, h);
+  return ctx;
+}
+
+function preloadFrame(frameNumber: number): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => resolve(img);
+    img.onerror = () =>
+      reject(new Error(`No se pudo cargar frame ${frameNumber}`));
+    img.src = getFrameUrl(frameNumber);
+  });
+}
+
+export function HeroScroll() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const pinRef = useRef<HTMLDivElement>(null);
+  const headlineRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const frameIndexRef = useRef(0);
+  const [ready, setReady] = useState(false);
+  const [loadPct, setLoadPct] = useState(0);
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    let cancelled = false;
+    let resizeHandler: (() => void) | null = null;
+    let gsapCtx: gsap.Context | null = null;
+
+    const init = async () => {
+      const saveData =
+        typeof navigator !== "undefined" &&
+        "connection" in navigator &&
+        (navigator as Navigator & { connection?: { saveData?: boolean } })
+          .connection?.saveData === true;
+
+      const isMobile =
+        typeof window !== "undefined" && window.innerWidth < 768;
+      const step = getFrameStep(isMobile, saveData);
+      const sequence = buildFrameSequence(step);
+
+      const first = await preloadFrame(sequence[0]);
+      if (cancelled) return;
+
+      imagesRef.current = [first];
+      setLoadPct(Math.round((1 / sequence.length) * 100));
+
+      const canvas = canvasRef.current;
+      if (canvas) {
+        fitCanvas(canvas, first, window.devicePixelRatio || 1);
+      }
+
+      setReady(true);
+      requestAnimationFrame(() => ScrollTrigger.refresh());
+
+      const rest = sequence.slice(1);
+      rest.forEach((frameNum, idx) => {
+        preloadFrame(frameNum)
+          .then((img) => {
+            if (cancelled) return;
+            imagesRef.current[idx + 1] = img;
+            setLoadPct(
+              Math.round(((idx + 2) / sequence.length) * 100),
+            );
+          })
+          .catch(() => {});
+      });
+
+      const draw = (index: number) => {
+        const img = imagesRef.current[index];
+        const canvasEl = canvasRef.current;
+        if (!img?.complete || !canvasEl) return;
+        fitCanvas(canvasEl, img, window.devicePixelRatio || 1);
+      };
+
+      resizeHandler = () => draw(frameIndexRef.current);
+      window.addEventListener("resize", resizeHandler);
+
+      gsapCtx = gsap.context(() => {
+        const state = { frame: 0 };
+
+        gsap.to(state, {
+          frame: sequence.length - 1,
+          ease: "none",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "+=180%",
+            pin: pinRef.current,
+            scrub: 0.6,
+            anticipatePin: 1,
+            onUpdate: (self) => {
+              if (progressRef.current) {
+                progressRef.current.style.transform = `scaleX(${self.progress})`;
+              }
+            },
+          },
+          onUpdate: () => {
+            const index = Math.round(state.frame);
+            if (index !== frameIndexRef.current) {
+              frameIndexRef.current = index;
+              draw(index);
+            }
+          },
+        });
+
+        gsap.to(headlineRef.current, {
+          opacity: 0,
+          y: -36,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "+=35%",
+            scrub: true,
+          },
+        });
+
+        gsap.from(".hero-word", {
+          y: 60,
+          opacity: 0,
+          duration: 1,
+          stagger: 0.1,
+          ease: "power4.out",
+          delay: 0.15,
+        });
+      }, sectionRef);
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      gsapCtx?.revert();
+    };
+  }, []);
+
+  const whatsappUrl = buildWhatsAppUrl(
+    "¡Hola! Quiero ordenar en Granizados de Película 🎬",
+  );
+
+  return (
+    <section
+      ref={sectionRef}
+      id="inicio"
+      className="relative min-h-[280vh] bg-cinema-black"
+    >
+      <div
+        ref={pinRef}
+        className="relative h-[100dvh] w-full overflow-hidden"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-30"
+          style={{ backgroundImage: `url(${HERO_BG})` }}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,0,51,0.12)_0%,transparent_60%)]" />
+
+        <div className="absolute inset-0 z-10">
+          <canvas
+            ref={canvasRef}
+            className={`block h-full w-full transition-opacity duration-500 ${
+              ready ? "opacity-100" : "opacity-0"
+            }`}
+            aria-label="Animación de hamburguesa armándose al hacer scroll"
+          />
+          {!ready && (
+            <p className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-[0.3em] text-white/40">
+              Cargando escena… {loadPct}%
+            </p>
+          )}
+        </div>
+
+        <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(to_bottom,rgba(10,10,10,0.75)_0%,transparent_28%,transparent_62%,rgba(10,10,10,0.9)_100%)]" />
+
+        <div
+          ref={headlineRef}
+          className="absolute inset-x-0 top-0 z-30 px-5 pt-20 sm:px-6 sm:pt-24"
+        >
+          <p className="hero-word mb-2 text-[10px] uppercase tracking-[0.35em] text-neon-soft sm:text-[11px]">
+            {BUSINESS.city}
+          </p>
+          <h1 className="hero-word max-w-[14ch] font-[family-name:var(--font-display)] text-[clamp(1.75rem,7vw,3.5rem)] uppercase leading-[0.92] tracking-tight text-white">
+            {BUSINESS.headline}
+          </h1>
+          <p className="hero-word mt-2 max-w-xs text-xs leading-relaxed text-white/65 sm:mt-3 sm:max-w-sm sm:text-sm">
+            {BUSINESS.subheadline}
+          </p>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hero-word mt-4 inline-flex w-fit items-center rounded-full border border-neon bg-neon/10 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white neon-border transition hover:bg-neon sm:mt-6 sm:px-6 sm:py-3 sm:text-sm"
+          >
+            Ordenar por WhatsApp
+          </a>
+        </div>
+
+        <div className="absolute inset-x-0 bottom-0 z-30 px-5 pb-6 sm:px-6">
+          <p className="mb-3 text-center text-[10px] uppercase tracking-[0.3em] text-white/40">
+            Desliza para armar la burger
+          </p>
+          <div className="mb-2 flex justify-between text-[10px] uppercase tracking-widest text-white/40">
+            <span>Escena 01</span>
+            <span>Armando</span>
+          </div>
+          <div className="h-[2px] overflow-hidden rounded-full bg-white/10">
+            <div
+              ref={progressRef}
+              className="h-full origin-left bg-neon shadow-[0_0_12px_#ff0033]"
+              style={{ transform: "scaleX(0)" }}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
