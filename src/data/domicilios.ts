@@ -2,6 +2,8 @@ export type Canal = "local" | "whatsapp" | "web";
 export type FormaPago = "efectivo" | "transferencia";
 export type EstadoPedido = "pendiente" | "en_camino" | "entregado" | "cancelado";
 
+export const BASE_EFECTIVO_DEFAULT = 200_000;
+
 export interface Domiciliario {
   id: string;
   nombre: string;
@@ -15,6 +17,7 @@ export interface Turno {
   fecha: string;
   hora_inicio: string;
   hora_fin: string | null;
+  base_efectivo: number;
   efectivo_entregado: number;
   cuadrado: boolean;
 }
@@ -37,8 +40,14 @@ export interface PedidoDomicilio {
 }
 
 export interface DomiciliarioConResumen extends Domiciliario {
+  turnoId: string | null;
+  jornadaIniciada: boolean;
   pedidos: PedidoDomicilio[];
-  efectivoEsperado: number;
+  baseEfectivo: number;
+  ventasEfectivo: number;
+  debeEntregar: number;
+  efectivoEntregado: number;
+  cuadrado: boolean;
   entregados: number;
   enCamino: number;
   diferencia: number;
@@ -55,6 +64,10 @@ export interface NuevoDomicilioInput {
   paga_con?: number;
 }
 
+export interface EditarPedidoInput extends NuevoDomicilioInput {
+  id: string;
+}
+
 export function calcularDevuelta(
   input: Pick<NuevoDomicilioInput, "forma_pago" | "valor_pedido" | "paga_con">,
 ): number | null {
@@ -62,4 +75,19 @@ export function calcularDevuelta(
   if (input.paga_con == null) return null;
   const devuelta = input.paga_con - input.valor_pedido;
   return devuelta >= 0 ? devuelta : null;
+}
+
+export function calcularVentasEfectivo(
+  pedidos: Pick<PedidoDomicilio, "forma_pago" | "valor_pedido">[],
+): number {
+  return pedidos
+    .filter((p) => p.forma_pago === "efectivo")
+    .reduce((sum, p) => sum + Number(p.valor_pedido), 0);
+}
+
+export function calcularDebeEntregar(
+  baseEfectivo: number,
+  pedidos: Pick<PedidoDomicilio, "forma_pago" | "valor_pedido">[],
+): number {
+  return baseEfectivo + calcularVentasEfectivo(pedidos);
 }

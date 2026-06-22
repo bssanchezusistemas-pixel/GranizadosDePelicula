@@ -4,8 +4,13 @@ import type {
   DomiciliarioConResumen,
   PedidoDomicilio,
   NuevoDomicilioInput,
+  Turno,
 } from "@/data/domicilios";
-import { calcularDevuelta } from "@/data/domicilios";
+import {
+  calcularDevuelta,
+  calcularDebeEntregar,
+  calcularVentasEfectivo,
+} from "@/data/domicilios";
 
 export async function getResumenDomiciliariosDelDia(
   fecha: string,
@@ -38,11 +43,18 @@ export async function getResumenDomiciliariosDelDia(
     const pedidosDelDom = (pedidos as PedidoDomicilio[]).filter(
       (p) => p.domiciliario_id === dom.id,
     );
-    const turno = turnos?.find((t) => t.domiciliario_id === dom.id);
+    const turno = turnos?.find((t) => t.domiciliario_id === dom.id) as
+      | Turno
+      | undefined;
 
-    const efectivoEsperado = pedidosDelDom
-      .filter((p) => p.forma_pago === "efectivo")
-      .reduce((sum, p) => sum + p.valor_pedido, 0);
+    const jornadaIniciada = turno != null;
+    const baseEfectivo = Number(turno?.base_efectivo ?? 0);
+    const ventasEfectivo = calcularVentasEfectivo(pedidosDelDom);
+    const debeEntregar = jornadaIniciada
+      ? calcularDebeEntregar(baseEfectivo, pedidosDelDom)
+      : 0;
+    const efectivoEntregado = Number(turno?.efectivo_entregado ?? 0);
+    const cuadrado = jornadaIniciada && efectivoEntregado >= debeEntregar;
 
     const entregados = pedidosDelDom.filter(
       (p) => p.estado === "entregado",
@@ -50,15 +62,20 @@ export async function getResumenDomiciliariosDelDia(
     const enCamino = pedidosDelDom.filter(
       (p) => p.estado === "en_camino" || p.estado === "pendiente",
     ).length;
-    const efectivoEntregado = turno?.efectivo_entregado ?? 0;
 
     return {
       ...dom,
+      turnoId: turno?.id ?? null,
+      jornadaIniciada,
       pedidos: pedidosDelDom,
-      efectivoEsperado,
+      baseEfectivo,
+      ventasEfectivo,
+      debeEntregar,
+      efectivoEntregado,
+      cuadrado,
       entregados,
       enCamino,
-      diferencia: efectivoEsperado - efectivoEntregado,
+      diferencia: debeEntregar - efectivoEntregado,
     };
   });
 }

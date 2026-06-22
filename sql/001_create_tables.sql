@@ -19,6 +19,7 @@ create table turnos (
   fecha date not null default current_date,
   hora_inicio timestamptz not null default now(),
   hora_fin timestamptz,
+  base_efectivo numeric(10,0) not null default 0,
   efectivo_entregado numeric(10,0) default 0,
   cuadrado boolean not null default false,
   creado_en timestamptz not null default now()

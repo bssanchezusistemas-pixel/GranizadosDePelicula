@@ -46,6 +46,45 @@ Edita `src/data/menu.ts`:
 - Precios, nombres y categorías (`MENU_CATEGORIES`)
 - WhatsApp, dirección, horarios (`BUSINESS`)
 
+## Panel de domicilios (Supabase)
+
+Ruta: `/admin/domicilios` (requiere login en `/admin/login`).
+
+### 1. Variables de entorno
+
+Copia `.env.local.example` → `.env.local` (ya configurado en local si trabajas en esta máquina).
+
+En **Vercel** agrega las mismas variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### 2. SQL en Supabase
+
+En [Supabase SQL Editor](https://supabase.com/dashboard/project/xhyqpeitlshgctvwwzch/sql/new):
+
+1. `sql/001_create_tables.sql` — tablas (si aún no las corriste)
+2. `sql/002_rls_policies.sql` — **obligatorio** para que el panel lea/escriba datos
+
+### 3. Crear usuario admin
+
+Supabase → **Authentication** → **Users** → **Add user**:
+
+- Email y contraseña de tu elección
+- Marca **Auto Confirm User**
+
+Luego entra en `http://localhost:3000/admin/login`.
+
+### Estado actual del proyecto Supabase
+
+| Tabla | Filas | RLS |
+|-------|-------|-----|
+| `domiciliarios` | 2 (Pedro, Luis) | activo |
+| `turnos` | 0 | activo |
+| `pedidos_domicilio` | 0 | activo |
+
+Usuarios Auth: créalo tú en el dashboard (el MCP está en modo solo lectura).
+
 ## Stack
 
-- Next.js 15 · React 19 · Tailwind CSS 4 · GSAP ScrollTrigger
+- Next.js 15 · React 19 · Tailwind CSS 4 · GSAP ScrollTrigger · Supabase

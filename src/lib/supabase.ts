@@ -1,22 +1,7 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 
-let client: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error(
-      "Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local",
-    );
-  }
-
-  if (!client) {
-    client = createClient(url, key);
-  }
-
-  return client;
+export function getSupabase() {
+  return createClient();
 }
 
 export function isSupabaseConfigured(): boolean {

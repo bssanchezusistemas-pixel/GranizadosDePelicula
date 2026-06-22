@@ -1,32 +1,50 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MetricCard } from "@/components/admin/MetricCard";
 import { RiderCard } from "@/components/admin/RiderCard";
 import { OrdersTable } from "@/components/admin/OrdersTable";
 import { NewDeliveryModal } from "@/components/admin/NewDeliveryModal";
-import { getResumenDomiciliariosDelDia, crearDomicilio } from "@/lib/domicilios-queries";
+import { CuadrarCajaModal } from "@/components/admin/CuadrarCajaModal";
+import { IniciarJornadaModal } from "@/components/admin/IniciarJornadaModal";
+import { EditDeliveryModal } from "@/components/admin/EditDeliveryModal";
+import { DeletePedidoModal } from "@/components/admin/DeletePedidoModal";
+import {
+  crearDomicilioAction,
+  cuadrarCajaAction,
+  getResumenDomiciliariosAction,
+  iniciarJornadaAction,
+  actualizarPedidoAction,
+  eliminarPedidoAction,
+} from "@/app/admin/domicilios/actions";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import type { DomiciliarioConResumen } from "@/data/domicilios";
-
-function formatCOP(value: number) {
-  return value.toLocaleString("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  });
-}
+import { createClient } from "@/lib/supabase/client";
+import { fechaHoyBogota } from "@/lib/dates";
+import { formatCOP } from "@/lib/currency";
+import type { DomiciliarioConResumen, PedidoDomicilio } from "@/data/domicilios";
 
 function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
+  return fechaHoyBogota();
 }
 
 export default function DomiciliosPage() {
+  const router = useRouter();
   const [riders, setRiders] = useState<DomiciliarioConResumen[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [riderCuadrarId, setRiderCuadrarId] = useState<string | null>(null);
+  const [riderIniciarId, setRiderIniciarId] = useState<string | null>(null);
+  const [pedidoEditar, setPedidoEditar] = useState<PedidoDomicilio | null>(null);
+  const [pedidoEliminar, setPedidoEliminar] = useState<PedidoDomicilio | null>(
+    null,
+  );
+  const [filtroDomiciliarioId, setFiltroDomiciliarioId] = useState<string | null>(
+    null,
+  );
+  const pedidosSectionRef = useRef<HTMLDivElement>(null);
 
   const fecha = hoyISO();
   const configured = isSupabaseConfigured();
@@ -40,7 +58,7 @@ export default function DomiciliosPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const data = await getResumenDomiciliariosDelDia(fecha);
+      const data = await getResumenDomiciliariosAction(fecha);
       setRiders(data);
     } catch (e) {
       setErrorMsg(
@@ -56,21 +74,90 @@ export default function DomiciliosPage() {
   }, [cargarDatos]);
 
   const todosPedidos = riders.flatMap((r) => r.pedidos);
+  const pedidosVisibles = filtroDomiciliarioId
+    ? todosPedidos.filter((p) => p.domiciliario_id === filtroDomiciliarioId)
+    : todosPedidos;
+  const domiciliarioFiltrado = filtroDomiciliarioId
+    ? riders.find((r) => r.id === filtroDomiciliarioId)
+    : null;
+  const domiciliariosConJornada = riders.filter((r) => r.jornadaIniciada);
   const totalDomicilios = todosPedidos.length;
-  const efectivoEsperadoTotal = riders.reduce(
-    (sum, r) => sum + r.efectivoEsperado,
-    0,
-  );
+  const debeEntregarTotal = riders.reduce((sum, r) => sum + r.debeEntregar, 0);
   const efectivoEntregadoTotal = riders.reduce(
-    (sum, r) => sum + Math.max(r.efectivoEsperado - r.diferencia, 0),
+    (sum, r) => sum + r.efectivoEntregado,
     0,
   );
-  const diferenciaTotal = efectivoEsperadoTotal - efectivoEntregadoTotal;
+  const diferenciaTotal = debeEntregarTotal - efectivoEntregadoTotal;
 
-  async function handleSave(input: Parameters<typeof crearDomicilio>[0]) {
-    await crearDomicilio(input);
+  async function handleSave(input: Parameters<typeof crearDomicilioAction>[0]) {
+    await crearDomicilioAction(input);
     await cargarDatos();
   }
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/admin/login");
+    router.refresh();
+  }
+
+  function handleVerPedidos(riderId: string) {
+    setFiltroDomiciliarioId(riderId);
+    requestAnimationFrame(() => {
+      pedidosSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
+  function handleCuadrarCaja(riderId: string) {
+    setRiderCuadrarId(riderId);
+  }
+
+  function handleIniciarJornada(riderId: string) {
+    setRiderIniciarId(riderId);
+  }
+
+  async function handleCuadrarSave(monto: number) {
+    if (!riderCuadrarId) return;
+    await cuadrarCajaAction({
+      domiciliario_id: riderCuadrarId,
+      fecha,
+      monto,
+    });
+    await cargarDatos();
+  }
+
+  async function handleIniciarSave(baseEfectivo: number) {
+    if (!riderIniciarId) return;
+    await iniciarJornadaAction({
+      domiciliario_id: riderIniciarId,
+      fecha,
+      base_efectivo: baseEfectivo,
+    });
+    await cargarDatos();
+  }
+
+  async function handleEditarSave(
+    input: Parameters<typeof actualizarPedidoAction>[0],
+  ) {
+    await actualizarPedidoAction(input);
+    await cargarDatos();
+  }
+
+  async function handleEliminarConfirm() {
+    if (!pedidoEliminar) return;
+    await eliminarPedidoAction(pedidoEliminar.id);
+    await cargarDatos();
+  }
+
+  const riderCuadrar = riderCuadrarId
+    ? riders.find((r) => r.id === riderCuadrarId)
+    : null;
+  const riderIniciar = riderIniciarId
+    ? riders.find((r) => r.id === riderIniciarId)
+    : null;
 
   return (
     <div className="min-h-screen bg-cinema-black px-4 py-8 text-white sm:px-6">
@@ -91,6 +178,13 @@ export default function DomiciliosPage() {
             >
               ← Ver landing
             </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-500"
+            >
+              Salir
+            </button>
             <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-300">
               <span className="h-1.5 w-1.5 rounded-full bg-neon" />
               {new Date()
@@ -104,7 +198,7 @@ export default function DomiciliosPage() {
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              disabled={!configured}
+              disabled={!configured || domiciliariosConJornada.length === 0}
               className="rounded-full bg-neon px-5 py-2 text-xs font-black hover:bg-neon-soft disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
             >
               + NUEVO DOMICILIO
@@ -128,16 +222,27 @@ export default function DomiciliosPage() {
             <p className="font-bold">Supabase no está configurado</p>
             <p className="mt-2 text-amber-200/80">
               Copia <code className="text-amber-100">.env.local.example</code> a{" "}
-              <code className="text-amber-100">.env.local</code>, agrega tus
-              credenciales y ejecuta el SQL en{" "}
-              <code className="text-amber-100">sql/001_create_tables.sql</code>.
+              <code className="text-amber-100">.env.local</code> y reinicia{" "}
+              <code className="text-amber-100">npm run dev</code>.
             </p>
           </div>
         )}
 
         {errorMsg && (
-          <div className="mb-6 rounded-lg border border-red-700/40 bg-red-900/15 px-5 py-4 text-sm font-bold text-red-300">
-            {errorMsg}
+          <div className="mb-6 rounded-lg border border-red-700/40 bg-red-900/15 px-5 py-4 text-sm text-red-200">
+            <p className="font-bold">{errorMsg}</p>
+            {errorMsg.toLowerCase().includes("domiciliarios") && (
+              <p className="mt-2 text-red-200/80">
+                Abre Supabase → SQL Editor y ejecuta el archivo{" "}
+                <code className="text-red-100">sql/002_rls_policies.sql</code>
+              </p>
+            )}
+            {errorMsg.toLowerCase().includes("base_efectivo") && (
+              <p className="mt-2 text-red-200/80">
+                Abre Supabase → SQL Editor y ejecuta el archivo{" "}
+                <code className="text-red-100">sql/004_turno_base_efectivo.sql</code>
+              </p>
+            )}
           </div>
         )}
 
@@ -150,13 +255,13 @@ export default function DomiciliosPage() {
                 label="Domicilios hoy"
                 value={String(totalDomicilios)}
                 sub={riders
-                  .map((r) => `${r.entregados + r.enCamino} ${r.nombre}`)
+                  .map((r) => `${r.nombre}: ${r.pedidos.length}`)
                   .join(" · ")}
               />
               <MetricCard
-                label="Efectivo esperado"
-                value={formatCOP(efectivoEsperadoTotal)}
-                sub="de todos los domiciliarios"
+                label="Debe entregar"
+                value={formatCOP(debeEntregarTotal)}
+                sub="base + ventas efectivo"
               />
               <MetricCard
                 label="Ya entregado"
@@ -179,8 +284,9 @@ export default function DomiciliosPage() {
                 <RiderCard
                   key={rider.id}
                   rider={rider}
-                  onVerPedidos={() => {}}
-                  onCuadrarCaja={() => {}}
+                  onVerPedidos={handleVerPedidos}
+                  onCuadrarCaja={handleCuadrarCaja}
+                  onIniciarJornada={handleIniciarJornada}
                 />
               ))}
               {riders.length === 0 && (
@@ -190,16 +296,64 @@ export default function DomiciliosPage() {
               )}
             </div>
 
-            <OrdersTable pedidos={todosPedidos} domiciliarios={riders} />
+            <div ref={pedidosSectionRef} className="scroll-mt-6">
+              <OrdersTable
+                pedidos={pedidosVisibles}
+                domiciliarios={riders}
+                filtroNombre={domiciliarioFiltrado?.nombre}
+                onLimpiarFiltro={
+                  filtroDomiciliarioId
+                    ? () => setFiltroDomiciliarioId(null)
+                    : undefined
+                }
+                onEditar={setPedidoEditar}
+                onEliminar={setPedidoEliminar}
+              />
+            </div>
           </>
         ) : null}
       </div>
 
       {showModal && (
         <NewDeliveryModal
-          domiciliarios={riders}
+          domiciliarios={domiciliariosConJornada}
+          numerosPedidoUsados={todosPedidos.map((p) => p.numero_pedido)}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
+        />
+      )}
+
+      {riderCuadrar && (
+        <CuadrarCajaModal
+          rider={riderCuadrar}
+          onClose={() => setRiderCuadrarId(null)}
+          onSave={handleCuadrarSave}
+        />
+      )}
+
+      {riderIniciar && (
+        <IniciarJornadaModal
+          rider={riderIniciar}
+          onClose={() => setRiderIniciarId(null)}
+          onSave={handleIniciarSave}
+        />
+      )}
+
+      {pedidoEditar && (
+        <EditDeliveryModal
+          pedido={pedidoEditar}
+          domiciliarios={domiciliariosConJornada}
+          numerosPedidoUsados={todosPedidos.map((p) => p.numero_pedido)}
+          onClose={() => setPedidoEditar(null)}
+          onSave={handleEditarSave}
+        />
+      )}
+
+      {pedidoEliminar && (
+        <DeletePedidoModal
+          pedido={pedidoEliminar}
+          onClose={() => setPedidoEliminar(null)}
+          onConfirm={handleEliminarConfirm}
         />
       )}
     </div>
