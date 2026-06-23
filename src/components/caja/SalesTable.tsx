@@ -3,29 +3,34 @@
 import { formatCOP } from "@/lib/currency";
 import { formatHoraBogota } from "@/lib/dates";
 import {
+  destinoPedido,
   FORMA_PAGO_LABEL,
-  TIPO_ENTREGA_LABEL,
   resumirItems,
-  type Pedido,
-} from "@/data/ventas";
+  type PedidoCaja,
+} from "@/data/caja";
 
 interface SalesTableProps {
-  pedidos: Pedido[];
+  pedidos: PedidoCaja[];
 }
 
 const columnas = [
   "Pedido",
   "Hora",
   "Items",
-  "Entrega",
+  "Destino",
   "Pago",
   "Total",
 ];
 
 export function SalesTable({ pedidos }: SalesTableProps) {
   const ordenados = [...pedidos].sort(
-    (a, b) => a.numeroPedido - b.numeroPedido,
+    (a, b) => a.numero_pedido - b.numero_pedido,
   );
+
+  const itemsResumen = (p: PedidoCaja) =>
+    resumirItems(
+      (p.items ?? []).map((i) => ({ nombre: i.nombre, cantidad: i.cantidad })),
+    );
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
@@ -59,40 +64,45 @@ export function SalesTable({ pedidos }: SalesTableProps) {
                 className="border-b border-zinc-800 last:border-none"
               >
                 <td className="px-5 py-3.5 text-sm font-black text-white">
-                  #{p.numeroPedido}
+                  #{p.numero_pedido}
+                  {p.estado === "abierto" && (
+                    <span className="ml-2 text-[10px] font-bold text-amber-400">
+                      ABIERTO
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-3.5 text-sm text-zinc-400">
-                  {formatHoraBogota(p.creadoEn)}
+                  {formatHoraBogota(p.creado_en)}
                 </td>
                 <td className="max-w-[280px] px-5 py-3.5 text-sm text-zinc-300">
-                  <span className="line-clamp-2">{resumirItems(p.items)}</span>
+                  <span className="line-clamp-2">{itemsResumen(p)}</span>
                 </td>
                 <td className="px-5 py-3.5">
                   <span
                     className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      p.tipoEntrega === "domicilio"
+                      p.tipo_entrega === "domicilio"
                         ? "bg-amber-900/30 text-amber-400"
-                        : p.tipoEntrega === "recoge"
+                        : p.tipo_entrega === "recoger"
                           ? "bg-blue-900/30 text-blue-300"
                           : "bg-zinc-800 text-zinc-300"
                     }`}
                   >
-                    {TIPO_ENTREGA_LABEL[p.tipoEntrega]}
+                    {destinoPedido(p)}
                   </span>
                 </td>
                 <td className="px-5 py-3.5">
                   <span
                     className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                      p.formaPago === "efectivo"
+                      p.forma_pago === "efectivo"
                         ? "bg-red-900/20 text-red-300"
                         : "bg-blue-900/20 text-blue-300"
                     }`}
                   >
-                    {FORMA_PAGO_LABEL[p.formaPago].toUpperCase()}
+                    {FORMA_PAGO_LABEL[p.forma_pago].toUpperCase()}
                   </span>
                 </td>
                 <td className="px-5 py-3.5 text-sm font-black text-white">
-                  {formatCOP(p.total)}
+                  {formatCOP(Number(p.total))}
                 </td>
               </tr>
             ))}
@@ -116,11 +126,13 @@ export function SalesTable({ pedidos }: SalesTableProps) {
                   colSpan={columnas.length - 1}
                   className="border-t border-zinc-800 bg-zinc-950/40 px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-zinc-400"
                 >
-                  Total acumulado
+                  Total acumulado (pedidos cerrados)
                 </td>
                 <td className="border-t border-zinc-800 bg-zinc-950/40 px-5 py-3 font-[family-name:var(--font-display)] text-base text-neon">
                   {formatCOP(
-                    pedidos.reduce((s, p) => s + p.total, 0),
+                    pedidos
+                      .filter((p) => p.estado === "cerrado")
+                      .reduce((s, p) => s + Number(p.total), 0),
                   )}
                 </td>
               </tr>

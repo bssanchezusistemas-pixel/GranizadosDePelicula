@@ -8,41 +8,42 @@ import {
   type MenuCategory,
   type MenuItem,
   type MenuItemSize,
+  type MenuCategoryId,
 } from "@/data/menu";
-import type { ItemPedido } from "@/data/ventas";
+import type { ItemPedidoCarrito } from "@/data/caja";
+import { ItemModifiersModal } from "@/components/caja/ItemModifiersModal";
 
-interface ProductGridProps {
-  /** Se llama cada vez que se agrega un producto (con tamaño opcional). */
-  onAdd: (item: ItemPedido) => void;
+interface PendingProduct {
+  productoId: string;
+  nombre: string;
+  precioUnitario: number;
+  categoriaId?: MenuCategoryId;
 }
 
-/**
- * Grilla de productos para caja: mismas categorías y estilo visual que el
- * MenuSection de la landing, pero optimizada para toque rápido en tablet/PC.
- */
+interface ProductGridProps {
+  onAdd: (item: ItemPedidoCarrito) => void;
+}
+
 export function ProductGrid({ onAdd }: ProductGridProps) {
   const [categoriaActiva, setCategoriaActiva] = useState<string>(
     MENU_CATEGORIES[0].id,
   );
-
-  const categorias = MENU_CATEGORIES;
+  const [pending, setPending] = useState<PendingProduct | null>(null);
 
   return (
     <div>
-      {/* Chips de categoría — sticky debajo de la cabecera */}
       <nav
         aria-label="Categorías"
         className="sticky top-[61px] z-30 -mx-4 mb-6 border-b border-white/5 bg-cinema-black/95 px-4 py-3 backdrop-blur-md sm:top-[65px]"
       >
         <div className="flex flex-wrap gap-2">
-          {categorias.map((cat) => {
+          {MENU_CATEGORIES.map((cat) => {
             const activa = categoriaActiva === cat.id;
             return (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoriaActiva(cat.id)}
-                aria-current={activa ? "true" : undefined}
                 className={`rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
                   activa
                     ? "border-neon bg-neon/15 text-white neon-border"
@@ -57,22 +58,32 @@ export function ProductGrid({ onAdd }: ProductGridProps) {
       </nav>
 
       <div className="space-y-10">
-        {categorias
-          .filter((cat) => cat.id === categoriaActiva)
-          .map((cat) => (
-            <CategoryBlock key={cat.id} category={cat} onAdd={onAdd} />
-          ))}
+        {MENU_CATEGORIES.filter((cat) => cat.id === categoriaActiva).map(
+          (cat) => (
+            <CategoryBlock
+              key={cat.id}
+              category={cat}
+              onRequestAdd={setPending}
+            />
+          ),
+        )}
       </div>
+
+      <ItemModifiersModal
+        item={pending}
+        onClose={() => setPending(null)}
+        onConfirm={onAdd}
+      />
     </div>
   );
 }
 
 function CategoryBlock({
   category,
-  onAdd,
+  onRequestAdd,
 }: {
   category: MenuCategory;
-  onAdd: (item: ItemPedido) => void;
+  onRequestAdd: (item: PendingProduct) => void;
 }) {
   const accent = category.accentColor ?? "#ff0033";
 
@@ -91,12 +102,6 @@ function CategoryBlock({
           </h3>
           <p className="mt-0.5 text-xs text-white/45">{category.tagline}</p>
         </div>
-        <span
-          className="shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
-          style={{ backgroundColor: `${accent}18`, color: accent }}
-        >
-          {category.items.length} platos
-        </span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -104,8 +109,9 @@ function CategoryBlock({
           <ProductCard
             key={item.id}
             item={item}
+            categoriaId={category.id}
             accentColor={accent}
-            onAdd={onAdd}
+            onRequestAdd={onRequestAdd}
           />
         ))}
       </div>
@@ -115,18 +121,23 @@ function CategoryBlock({
 
 function ProductCard({
   item,
+  categoriaId,
   accentColor,
-  onAdd,
+  onRequestAdd,
 }: {
   item: MenuItem;
+  categoriaId: MenuCategoryId;
   accentColor: string;
-  onAdd: (item: ItemPedido) => void;
+  onRequestAdd: (item: PendingProduct) => void;
 }) {
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>(
     item.sizes?.[0],
   );
 
-  const displayPrice = getLinePrice(item, selectedSize);
+  const displayPrice = useMemo(
+    () => getLinePrice(item, selectedSize),
+    [item, selectedSize],
+  );
   const hasSizes = Boolean(item.sizes?.length);
 
   function handleAdd() {
@@ -134,11 +145,11 @@ function ProductCard({
     const nombre = selectedSize
       ? `${item.name} (${selectedSize.label})`
       : item.name;
-    onAdd({
+    onRequestAdd({
       productoId: item.id,
       nombre,
-      cantidad: 1,
       precioUnitario: displayPrice,
+      categoriaId,
     });
   }
 
@@ -153,14 +164,13 @@ function ProductCard({
           background: `linear-gradient(90deg, ${accentColor}, ${accentColor}66)`,
         }}
       />
-
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-2 flex items-start justify-between gap-3">
           <h4 className="font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white">
             {item.name}
           </h4>
           <span
-            className="shrink-0 -rotate-1 rounded-md px-2.5 py-1 font-[family-name:var(--font-display)] text-sm text-white"
+            className="shrink-0 rounded-md px-2.5 py-1 font-[family-name:var(--font-display)] text-sm text-white"
             style={{ backgroundColor: accentColor }}
           >
             {formatCOP(displayPrice)}
@@ -176,18 +186,14 @@ function ProductCard({
                   key={size.label}
                   type="button"
                   onClick={() => setSelectedSize(size)}
-                  aria-pressed={isActive}
-                  className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition ${
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${
                     isActive
                       ? "border-transparent text-white"
-                      : "border-white/15 text-white/55 hover:border-white/30"
+                      : "border-white/15 text-white/55"
                   }`}
                   style={
                     isActive
-                      ? {
-                          backgroundColor: accentColor,
-                          borderColor: accentColor,
-                        }
+                      ? { backgroundColor: accentColor, borderColor: accentColor }
                       : undefined
                   }
                 >
@@ -206,16 +212,8 @@ function ProductCard({
           type="button"
           onClick={handleAdd}
           disabled={hasSizes && !selectedSize}
-          className="mt-auto w-full rounded-full py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ borderColor: `${accentColor}66`, border: `1px solid ${accentColor}66` }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = `${accentColor}22`;
-            e.currentTarget.style.borderColor = accentColor;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-            e.currentTarget.style.borderColor = `${accentColor}66`;
-          }}
+          className="mt-auto w-full rounded-full border py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white disabled:opacity-40"
+          style={{ borderColor: `${accentColor}66` }}
         >
           + Agregar
         </button>

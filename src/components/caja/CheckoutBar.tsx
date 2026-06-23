@@ -3,38 +3,40 @@
 import { formatCOP } from "@/lib/currency";
 import { calcularDevuelta } from "@/data/domicilios";
 import {
-  COMISION_REPARTIDOR,
+  COMISION_DOMICILIO,
   FORMA_PAGO_LABEL,
-  REPARTIDORES,
   TIPO_COMISION_LABEL,
   TIPO_ENTREGA_LABEL,
-  type FormaPago,
   type TipoComision,
   type TipoEntrega,
-} from "@/data/ventas";
+} from "@/data/caja";
+import type { FormaPago } from "@/data/domicilios";
+import type { Ubicacion } from "@/data/caja";
+import { UbicacionSelector } from "@/components/caja/UbicacionSelector";
 
 interface CheckoutBarProps {
   total: number;
   tipoEntrega: TipoEntrega;
   formaPago: FormaPago;
+  ubicaciones: Ubicacion[];
+  ubicacionId: string | null;
+  nombreRecoge: string;
   direccion: string;
-  /** id del repartidor seleccionado (solo domicilio). */
-  domiciliarioId: string | null;
-  /** Con cuánto paga el cliente en efectivo (domicilio + efectivo). */
   pagaCon: number;
-  /** Quién paga la comisión del domiciliario (solo domicilio). */
   comisionPagadaPor: TipoComision | null;
   carritoVacio: boolean;
+  confirmando: boolean;
   onTipoEntrega: (t: TipoEntrega) => void;
   onFormaPago: (f: FormaPago) => void;
+  onUbicacion: (id: string | null) => void;
+  onNombreRecoge: (n: string) => void;
   onDireccion: (d: string) => void;
-  onDomiciliario: (id: string | null) => void;
   onPagaCon: (n: number) => void;
   onComisionPagadaPor: (t: TipoComision) => void;
   onConfirmar: () => void;
 }
 
-const TIPOS: TipoEntrega[] = ["local", "recoge", "domicilio"];
+const TIPOS: TipoEntrega[] = ["mesa", "recoger", "domicilio"];
 const PAGOS: FormaPago[] = ["efectivo", "transferencia"];
 const COMISION_OPCIONES: TipoComision[] = ["cliente", "restaurante"];
 
@@ -42,28 +44,35 @@ export function CheckoutBar({
   total,
   tipoEntrega,
   formaPago,
+  ubicaciones,
+  ubicacionId,
+  nombreRecoge,
   direccion,
-  domiciliarioId,
   pagaCon,
   comisionPagadaPor,
   carritoVacio,
+  confirmando,
   onTipoEntrega,
   onFormaPago,
+  onUbicacion,
+  onNombreRecoge,
   onDireccion,
-  onDomiciliario,
   onPagaCon,
   onComisionPagadaPor,
   onConfirmar,
 }: CheckoutBarProps) {
+  const esMesa = tipoEntrega === "mesa";
+  const esRecoger = tipoEntrega === "recoger";
   const esDomicilio = tipoEntrega === "domicilio";
+
+  const sinUbicacion = esMesa && !ubicacionId;
+  const sinNombreRecoge = esRecoger && nombreRecoge.trim().length < 2;
   const direccionInvalida = esDomicilio && direccion.trim().length < 5;
-  const sinRepartidor = esDomicilio && !domiciliarioId;
   const sinComision = esDomicilio && !comisionPagadaPor;
 
-  // Si el cliente paga la comisión, se suma al total.
   const totalConComision =
     esDomicilio && comisionPagadaPor === "cliente"
-      ? total + COMISION_REPARTIDOR
+      ? total + COMISION_DOMICILIO
       : total;
 
   const pagaConInsuficiente =
@@ -72,17 +81,27 @@ export function CheckoutBar({
     pagaCon > 0 &&
     pagaCon < totalConComision;
 
+  const faltaPagaCon =
+    esDomicilio && formaPago === "efectivo" && (!pagaCon || pagaCon < totalConComision);
+
   const devuelta =
     esDomicilio && formaPago === "efectivo" && pagaCon > 0
-      ? calcularDevuelta({ forma_pago: formaPago, valor_pedido: totalConComision, paga_con: pagaCon })
+      ? calcularDevuelta({
+          forma_pago: formaPago,
+          valor_pedido: totalConComision,
+          paga_con: pagaCon,
+        })
       : null;
 
   const puedeConfirmar =
     !carritoVacio &&
+    !sinUbicacion &&
+    !sinNombreRecoge &&
     !direccionInvalida &&
-    !sinRepartidor &&
     !sinComision &&
-    !pagaConInsuficiente;
+    !pagaConInsuficiente &&
+    !faltaPagaCon &&
+    !confirmando;
 
   return (
     <div className="rounded-2xl border border-white/8 bg-cinema-gray p-5">
@@ -90,7 +109,6 @@ export function CheckoutBar({
         Cerrar venta
       </p>
 
-      {/* Tipo de entrega */}
       <div className="mb-4">
         <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
           Tipo de entrega
@@ -117,7 +135,50 @@ export function CheckoutBar({
         </div>
       </div>
 
-      {/* Forma de pago */}
+      {esMesa && (
+        <div className="mb-4">
+          <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
+            Mesa, banco o barra <span className="text-neon">*</span>
+          </label>
+          <UbicacionSelector
+            ubicaciones={ubicaciones}
+            seleccionadaId={ubicacionId}
+            onSelect={onUbicacion}
+          />
+          {sinUbicacion && (
+            <p className="mt-2 text-[11px] font-bold text-red-400">
+              Selecciona dónde se sirve el pedido.
+            </p>
+          )}
+          {ubicacionId &&
+            ubicaciones.find((u) => u.id === ubicacionId)?.estado ===
+              "ocupada" && (
+              <p className="mt-2 text-[11px] text-amber-400">
+                Mesa ocupada — se agregarán productos al pedido abierto.
+              </p>
+            )}
+        </div>
+      )}
+
+      {esRecoger && (
+        <div className="mb-4">
+          <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
+            Nombre de quien recoge <span className="text-neon">*</span>
+          </label>
+          <input
+            type="text"
+            value={nombreRecoge}
+            onChange={(e) => onNombreRecoge(e.target.value)}
+            placeholder="Ej. Juan Pérez"
+            className={`w-full rounded-lg border bg-cinema-black px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none ${
+              sinNombreRecoge
+                ? "border-red-500 focus:border-red-500"
+                : "border-white/10 focus:border-neon"
+            }`}
+          />
+        </div>
+      )}
+
       <div className="mb-4">
         <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
           Forma de pago
@@ -145,7 +206,6 @@ export function CheckoutBar({
         </div>
       </div>
 
-      {/* Dirección — solo cuando es domicilio */}
       {esDomicilio && (
         <div className="mb-4">
           <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
@@ -162,67 +222,13 @@ export function CheckoutBar({
                 : "border-white/10 focus:border-neon"
             }`}
           />
-          {direccionInvalida && (
-            <p className="mt-1.5 text-[11px] font-bold text-red-400">
-              Escribe la dirección del domicilio para continuar.
-            </p>
-          )}
         </div>
       )}
 
-      {/* Domiciliario — solo cuando es domicilio */}
-      {esDomicilio && (
-        <div className="mb-4">
-          <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
-            ¿Quién lo entrega? <span className="text-neon">*</span>
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {REPARTIDORES.map((r) => {
-              const activo = domiciliarioId === r.id;
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => onDomiciliario(activo ? null : r.id)}
-                  aria-pressed={activo}
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-3 text-left transition ${
-                    activo
-                      ? "border-neon bg-neon/15 text-white"
-                      : "border-white/10 text-white/60 hover:border-white/30"
-                  }`}
-                >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sm font-black ${
-                      activo ? "bg-neon" : "bg-cinema-black text-white/60"
-                    }`}
-                  >
-                    {r.nombre.charAt(0)}
-                  </span>
-                  <span className="text-xs font-bold uppercase leading-tight">
-                    {r.nombre}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {/*
-            // TODO: conectar con el flujo de admin/domicilios cuando se
-            // implemente Supabase. Al confirmar un pedido con tipoEntrega
-            // "domicilio", deberá crearse un PedidoDomicilio (estado
-            // "pendiente") para asignarle repartidor desde
-            // /admin/domicilios. La estructura de Pedido ya es compatible:
-            // usar pedidoToDomicilioInput(pedido) para el mapeo de campos.
-            // De momento el pedido queda en el tablero /caja/reparto para
-            // que el repartidor lo acepte.
-          */}
-        </div>
-      )}
-
-      {/* Comisión del domiciliario — solo cuando es domicilio */}
       {esDomicilio && (
         <div className="mb-4">
           <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
-            Comisión domiciliario ({formatCOP(COMISION_REPARTIDOR)})
+            Comisión domicilio ({formatCOP(COMISION_DOMICILIO)})
           </label>
           <div className="grid grid-cols-2 gap-2">
             {COMISION_OPCIONES.map((opcion) => {
@@ -239,26 +245,14 @@ export function CheckoutBar({
                       : "border-white/10 text-white/55 hover:border-white/30"
                   }`}
                 >
-                  <span>{opcion === "cliente" ? "🧾" : "🏪"}</span>
                   {TIPO_COMISION_LABEL[opcion]}
                 </button>
               );
             })}
           </div>
-          {comisionPagadaPor === "cliente" && (
-            <p className="mt-1.5 text-[11px] text-amber-400">
-              Se suma {formatCOP(COMISION_REPARTIDOR)} al total del pedido.
-            </p>
-          )}
-          {comisionPagadaPor === "restaurante" && (
-            <p className="mt-1.5 text-[11px] text-white/35">
-              El restaurante absorbe la comisión. No afecta al cliente.
-            </p>
-          )}
         </div>
       )}
 
-      {/* Paga con + devuelta — solo domicilio en efectivo */}
       {esDomicilio && formaPago === "efectivo" && (
         <div className="mb-5">
           <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
@@ -270,28 +264,20 @@ export function CheckoutBar({
               type="text"
               inputMode="numeric"
               value={pagaCon ? pagaCon.toLocaleString("es-CO") : ""}
-              onChange={(e) => onPagaCon(Number(e.target.value.replace(/\D/g, "")) || 0)}
+              onChange={(e) =>
+                onPagaCon(Number(e.target.value.replace(/\D/g, "")) || 0)
+              }
               placeholder="0"
               className={`w-full bg-transparent font-black text-lg text-white placeholder:font-medium placeholder:text-white/30 focus:outline-none ${
                 pagaConInsuficiente ? "text-red-400" : ""
               }`}
             />
           </div>
-          {pagaConInsuficiente && (
-            <p className="mt-1.5 text-[11px] font-bold text-red-400">
-              El cliente paga menos de lo que vale el pedido.
-            </p>
-          )}
           {devuelta !== null && devuelta >= 0 && pagaCon > 0 && (
             <div className="mt-2 flex items-center justify-between rounded-lg border border-amber-700/40 bg-amber-900/10 px-4 py-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
-                  Devuelta al cliente
-                </p>
-                <p className="mt-0.5 text-[10px] text-white/40">
-                  {formatCOP(pagaCon)} − {formatCOP(totalConComision)}
-                </p>
-              </div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                Devuelta al cliente
+              </p>
               <p className="font-[family-name:var(--font-display)] text-lg text-amber-400">
                 {formatCOP(devuelta)}
               </p>
@@ -300,27 +286,6 @@ export function CheckoutBar({
         </div>
       )}
 
-      {/* Desglose del total */}
-      {esDomicilio && comisionPagadaPor === "cliente" && (
-        <div className="mb-3 flex items-center justify-between border-t border-white/8 pt-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-              Subtotal productos
-            </p>
-          </div>
-          <p className="text-sm text-white/60">{formatCOP(total)}</p>
-        </div>
-      )}
-      {esDomicilio && comisionPagadaPor === "cliente" && (
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-            Comisión domiciliario
-          </p>
-          <p className="text-sm text-amber-400">{formatCOP(COMISION_REPARTIDOR)}</p>
-        </div>
-      )}
-
-      {/* Total + confirmar */}
       <div className="mb-4 flex items-center justify-between border-t border-white/8 pt-4">
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/50">
           Total a cobrar
@@ -336,13 +301,15 @@ export function CheckoutBar({
         disabled={!puedeConfirmar}
         className="w-full rounded-full bg-neon py-4 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:bg-neon-soft disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
       >
-        {carritoVacio
-          ? "Carrito vacío"
-          : sinRepartidor
-            ? "Selecciona un repartidor"
-            : sinComision
-              ? "Elige quién paga comisión"
-              : `Confirmar pedido · ${formatCOP(totalConComision)}`}
+        {confirmando
+          ? "Enviando..."
+          : carritoVacio
+            ? "Carrito vacío"
+            : sinUbicacion
+              ? "Selecciona mesa"
+              : sinComision
+                ? "Elige quién paga comisión"
+                : `Confirmar pedido · ${formatCOP(totalConComision)}`}
       </button>
     </div>
   );

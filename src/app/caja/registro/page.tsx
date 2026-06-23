@@ -1,11 +1,49 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import {
+  getPedidosDelDiaAction,
+  reiniciarDiaCajaAction,
+} from "@/app/caja/actions";
 import { DailySummary } from "@/components/caja/DailySummary";
 import { SalesTable } from "@/components/caja/SalesTable";
-import { useVentas } from "@/context/VentasContext";
+import type { PedidoCaja } from "@/data/caja";
 
 export default function RegistroPage() {
-  const { pedidos, reiniciarDia } = useVentas();
+  const [pedidos, setPedidos] = useState<PedidoCaja[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reiniciando, setReiniciando] = useState(false);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getPedidosDelDiaAction();
+      setPedidos(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  async function handleReiniciar() {
+    if (
+      !confirm(
+        "¿Reiniciar el registro del día? Se borrarán todos los pedidos de caja de hoy.",
+      )
+    ) {
+      return;
+    }
+    setReiniciando(true);
+    try {
+      await reiniciarDiaCajaAction();
+      await cargar();
+    } finally {
+      setReiniciando(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
@@ -18,25 +56,17 @@ export default function RegistroPage() {
             Registro del día
           </h1>
           <p className="mt-1.5 text-sm text-white/40">
-            {pedidos.length} pedidos registrados
+            {loading ? "Cargando..." : `${pedidos.length} pedidos registrados`}
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            if (
-              confirm(
-                "¿Reiniciar el registro del día? Se borrarán todos los pedidos en memoria.",
-              )
-            ) {
-              reiniciarDia();
-            }
-          }}
-          disabled={pedidos.length === 0}
+          onClick={handleReiniciar}
+          disabled={pedidos.length === 0 || reiniciando}
           className="rounded-full border border-amber-700/50 px-5 py-2 text-xs font-bold uppercase tracking-wide text-amber-300 transition hover:border-amber-500 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
         >
-          Reiniciar día
+          {reiniciando ? "Reiniciando..." : "Reiniciar día"}
         </button>
       </div>
 

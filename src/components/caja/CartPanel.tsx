@@ -1,21 +1,19 @@
 "use client";
 
 import { formatCOP } from "@/lib/currency";
-import type { ItemPedido } from "@/data/ventas";
+import { formatModificadores, type ItemPedidoCarrito } from "@/data/caja";
 
 interface CartPanelProps {
-  items: ItemPedido[];
-  onIncrementar: (productoId: string, nombre: string) => void;
-  onDecrementar: (productoId: string, nombre: string) => void;
-  onQuitar: (productoId: string, nombre: string) => void;
+  items: ItemPedidoCarrito[];
+  onIncrementar: (key: string) => void;
+  onDecrementar: (key: string) => void;
+  onQuitar: (key: string) => void;
   onVaciar: () => void;
-  /** Clave compuesta productoId+nombre para diferenciar tamaños. */
   total: number;
 }
 
-/** Clave de línea que distingue producto + tamaño (mismo nombre puede tener otro precio). */
-function lineaKey(item: ItemPedido): string {
-  return `${item.productoId}::${item.nombre}`;
+export function itemCarritoKey(item: ItemPedidoCarrito): string {
+  return `${item.productoId}::${item.nombre}::${item.sinIngredientes.join("|")}::${item.notasExtra ?? ""}`;
 }
 
 export function CartPanel({
@@ -55,25 +53,64 @@ export function CartPanel({
             <p className="text-sm font-bold uppercase tracking-wide text-white/40">
               Carrito vacío
             </p>
-            <p className="mt-1 text-xs text-white/30">
-              Toca un producto para agregarlo.
-            </p>
           </div>
         ) : (
           <ul className="space-y-2">
-            {items.map((item) => (
-              <CartLine
-                key={lineaKey(item)}
-                item={item}
-                onIncrementar={() =>
-                  onIncrementar(item.productoId, item.nombre)
-                }
-                onDecrementar={() =>
-                  onDecrementar(item.productoId, item.nombre)
-                }
-                onQuitar={() => onQuitar(item.productoId, item.nombre)}
-              />
-            ))}
+            {items.map((item) => {
+              const key = itemCarritoKey(item);
+              const mods = formatModificadores(item);
+              return (
+                <li
+                  key={key}
+                  className="rounded-xl border border-white/8 bg-cinema-black/40 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold uppercase leading-tight text-white">
+                        {item.nombre}
+                      </p>
+                      {mods && (
+                        <p className="mt-0.5 text-[10px] text-amber-400/90">{mods}</p>
+                      )}
+                      <p className="mt-0.5 text-[11px] text-white/40">
+                        {formatCOP(item.precioUnitario)} c/u
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm font-black text-white">
+                      {formatCOP(item.precioUnitario * item.cantidad)}
+                    </p>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onDecrementar(key)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-cinema-gray text-lg font-bold text-white/70"
+                      >
+                        −
+                      </button>
+                      <span className="w-9 text-center text-sm font-black text-white">
+                        {item.cantidad}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onIncrementar(key)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-neon/40 bg-neon/10 text-lg font-bold text-neon"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onQuitar(key)}
+                      className="rounded-lg px-2 py-1 text-[10px] font-bold uppercase text-white/30 hover:text-red-400"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -89,68 +126,5 @@ export function CartPanel({
         </div>
       </div>
     </div>
-  );
-}
-
-function CartLine({
-  item,
-  onIncrementar,
-  onDecrementar,
-  onQuitar,
-}: {
-  item: ItemPedido;
-  onIncrementar: () => void;
-  onDecrementar: () => void;
-  onQuitar: () => void;
-}) {
-  const subtotal = item.precioUnitario * item.cantidad;
-
-  return (
-    <li className="rounded-xl border border-white/8 bg-cinema-black/40 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold uppercase leading-tight text-white">
-            {item.nombre}
-          </p>
-          <p className="mt-0.5 text-[11px] text-white/40">
-            {formatCOP(item.precioUnitario)} c/u
-          </p>
-        </div>
-        <p className="shrink-0 text-sm font-black text-white">
-          {formatCOP(subtotal)}
-        </p>
-      </div>
-
-      <div className="mt-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onDecrementar}
-            aria-label={`Quitar una unidad de ${item.nombre}`}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-cinema-gray text-lg font-bold text-white/70 transition hover:border-white/30 hover:text-white"
-          >
-            −
-          </button>
-          <span className="w-9 text-center text-sm font-black text-white">
-            {item.cantidad}
-          </span>
-          <button
-            type="button"
-            onClick={onIncrementar}
-            aria-label={`Agregar una unidad de ${item.nombre}`}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-neon/40 bg-neon/10 text-lg font-bold text-neon transition hover:border-neon hover:bg-neon/20"
-          >
-            +
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onQuitar}
-          className="rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/30 transition hover:text-red-400"
-        >
-          Quitar
-        </button>
-      </div>
-    </li>
   );
 }
