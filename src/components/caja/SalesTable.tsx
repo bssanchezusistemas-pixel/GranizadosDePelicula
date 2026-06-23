@@ -1,0 +1,133 @@
+"use client";
+
+import { formatCOP } from "@/lib/currency";
+import { formatHoraBogota } from "@/lib/dates";
+import {
+  FORMA_PAGO_LABEL,
+  TIPO_ENTREGA_LABEL,
+  resumirItems,
+  type Pedido,
+} from "@/data/ventas";
+
+interface SalesTableProps {
+  pedidos: Pedido[];
+}
+
+const columnas = [
+  "Pedido",
+  "Hora",
+  "Items",
+  "Entrega",
+  "Pago",
+  "Total",
+];
+
+export function SalesTable({ pedidos }: SalesTableProps) {
+  const ordenados = [...pedidos].sort(
+    (a, b) => a.numeroPedido - b.numeroPedido,
+  );
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="flex items-center justify-between px-5 py-4">
+        <div className="text-sm font-bold uppercase tracking-wide">
+          Ventas del día — detalle
+        </div>
+        <span className="rounded-full bg-zinc-800 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+          {pedidos.length} registros
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse">
+          <thead>
+            <tr>
+              {columnas.map((h) => (
+                <th
+                  key={h}
+                  className="border-y border-zinc-800 bg-zinc-950/40 px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-zinc-500"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ordenados.map((p) => (
+              <tr
+                key={p.id}
+                className="border-b border-zinc-800 last:border-none"
+              >
+                <td className="px-5 py-3.5 text-sm font-black text-white">
+                  #{p.numeroPedido}
+                </td>
+                <td className="px-5 py-3.5 text-sm text-zinc-400">
+                  {formatHoraBogota(p.creadoEn)}
+                </td>
+                <td className="max-w-[280px] px-5 py-3.5 text-sm text-zinc-300">
+                  <span className="line-clamp-2">{resumirItems(p.items)}</span>
+                </td>
+                <td className="px-5 py-3.5">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      p.tipoEntrega === "domicilio"
+                        ? "bg-amber-900/30 text-amber-400"
+                        : p.tipoEntrega === "recoge"
+                          ? "bg-blue-900/30 text-blue-300"
+                          : "bg-zinc-800 text-zinc-300"
+                    }`}
+                  >
+                    {TIPO_ENTREGA_LABEL[p.tipoEntrega]}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5">
+                  <span
+                    className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                      p.formaPago === "efectivo"
+                        ? "bg-red-900/20 text-red-300"
+                        : "bg-blue-900/20 text-blue-300"
+                    }`}
+                  >
+                    {FORMA_PAGO_LABEL[p.formaPago].toUpperCase()}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5 text-sm font-black text-white">
+                  {formatCOP(p.total)}
+                </td>
+              </tr>
+            ))}
+
+            {pedidos.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columnas.length}
+                  className="px-5 py-8 text-center text-sm text-zinc-500"
+                >
+                  Todavía no hay ventas registradas hoy.
+                </td>
+              </tr>
+            )}
+          </tbody>
+
+          {pedidos.length > 0 && (
+            <tfoot>
+              <tr>
+                <td
+                  colSpan={columnas.length - 1}
+                  className="border-t border-zinc-800 bg-zinc-950/40 px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-zinc-400"
+                >
+                  Total acumulado
+                </td>
+                <td className="border-t border-zinc-800 bg-zinc-950/40 px-5 py-3 font-[family-name:var(--font-display)] text-base text-neon">
+                  {formatCOP(
+                    pedidos.reduce((s, p) => s + p.total, 0),
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+}
