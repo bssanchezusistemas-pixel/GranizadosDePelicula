@@ -34,9 +34,9 @@ export function ProductGrid({ onAdd }: ProductGridProps) {
     <div>
       <nav
         aria-label="Categorías"
-        className="sticky top-[61px] z-30 -mx-4 mb-6 border-b border-white/5 bg-cinema-black/95 px-4 py-3 backdrop-blur-md sm:top-[65px]"
+        className="sticky top-[61px] z-30 -mx-4 mb-6 border-b border-white/5 bg-cinema-black/95 backdrop-blur-md sm:top-[65px]"
       >
-        <div className="flex flex-wrap gap-2">
+        <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 py-2.5 sm:flex-wrap sm:overflow-visible sm:py-3">
           {MENU_CATEGORIES.map((cat) => {
             const activa = categoriaActiva === cat.id;
             return (
@@ -44,7 +44,8 @@ export function ProductGrid({ onAdd }: ProductGridProps) {
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoriaActiva(cat.id)}
-                className={`rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition ${
+                aria-current={activa ? "true" : undefined}
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[10px] uppercase tracking-[0.15em] transition sm:px-5 sm:py-2.5 sm:text-[11px] ${
                   activa
                     ? "border-neon bg-neon/15 text-white neon-border"
                     : "border-white/10 text-white/60 hover:border-white/30"
