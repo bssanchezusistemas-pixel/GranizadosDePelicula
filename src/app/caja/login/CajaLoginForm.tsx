@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -14,7 +14,11 @@ type ModoLogin = "mesero" | "admin";
 
 export function CajaLoginForm() {
   const router = useRouter();
-  const [modo, setModo] = useState<ModoLogin>("mesero");
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") || "/caja";
+  const [modo, setModo] = useState<ModoLogin>(
+    next.startsWith("/admin") ? "admin" : "mesero",
+  );
   const [meseros, setMeseros] = useState<string[]>([]);
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -60,7 +64,7 @@ export function CajaLoginForm() {
       if (signInError) throw new Error(signInError.message);
 
       await confirmAdminCajaSessionAction();
-      router.push("/caja");
+      router.push(next.startsWith("/admin") ? next : "/caja");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");

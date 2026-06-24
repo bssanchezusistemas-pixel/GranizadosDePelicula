@@ -25,7 +25,10 @@ export async function middleware(request: NextRequest) {
 
   if (isCajaLogin && session) {
     const next = request.nextUrl.searchParams.get("next") || "/caja";
-    return NextResponse.redirect(new URL(next, request.url));
+    // Rutas /admin requieren Supabase Auth; no rebotar solo con cookie de caja.
+    if (!next.startsWith("/admin")) {
+      return NextResponse.redirect(new URL(next, request.url));
+    }
   }
 
   return updateSession(request);
