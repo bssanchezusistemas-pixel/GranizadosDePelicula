@@ -18,6 +18,7 @@ import {
   type MenuItemSize,
 } from "@/data/menu";
 import type { FormaPago } from "@/data/domicilios";
+import { prefersReducedMotion } from "@/lib/cart-anchor";
 
 export type TipoEntregaCliente = "domicilio" | "recoger";
 
@@ -30,6 +31,7 @@ export interface CartLine {
 
 export interface AddToCartOptions {
   selectedSize?: MenuItemSize;
+  flyFrom?: DOMRect;
 }
 
 const FORMA_PAGO_LABEL: Record<FormaPago, string> = {
@@ -58,6 +60,9 @@ interface CartContextValue {
   setFormaPago: (forma: FormaPago) => void;
   isCheckoutValid: () => boolean;
   buildOrderMessage: () => string;
+  flyAnimation: { from: DOMRect; key: number } | null;
+  cartBadgePulse: number;
+  completeFlyAnimation: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -70,11 +75,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [direccion, setDireccion] = useState("");
   const [nombreRecoge, setNombreRecoge] = useState("");
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
+  const [flyAnimation, setFlyAnimation] = useState<{
+    from: DOMRect;
+    key: number;
+  } | null>(null);
+  const [cartBadgePulse, setCartBadgePulse] = useState(0);
 
   const setTipoEntrega = useCallback((tipo: TipoEntregaCliente) => {
     setTipoEntregaState(tipo);
     if (tipo !== "recoger") setNombreRecoge("");
     if (tipo !== "domicilio") setDireccion("");
+  }, []);
+
+  const completeFlyAnimation = useCallback(() => {
+    setFlyAnimation(null);
+    setCartBadgePulse((n) => n + 1);
   }, []);
 
   const addItem = useCallback((item: MenuItem, options?: AddToCartOptions) => {
@@ -99,7 +114,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { lineId, item, quantity: 1, selectedSize }];
     });
-    setIsOpen(true);
+
+    if (options?.flyFrom) {
+      if (prefersReducedMotion()) {
+        setCartBadgePulse((n) => n + 1);
+      } else {
+        setFlyAnimation({ from: options.flyFrom, key: Date.now() });
+      }
+    }
   }, []);
 
   const removeItem = useCallback((lineId: string) => {
@@ -211,6 +233,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setFormaPago,
       isCheckoutValid,
       buildOrderMessage,
+      flyAnimation,
+      cartBadgePulse,
+      completeFlyAnimation,
     }),
     [
       lines,
@@ -227,6 +252,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setTipoEntrega,
       isCheckoutValid,
       buildOrderMessage,
+      flyAnimation,
+      cartBadgePulse,
+      completeFlyAnimation,
     ],
   );
 

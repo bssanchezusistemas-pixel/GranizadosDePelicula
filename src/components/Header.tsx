@@ -5,7 +5,7 @@ import { buildWhatsAppUrl } from "@/data/menu";
 import { useCart } from "@/context/CartContext";
 
 export function Header() {
-  const { totalItems, openCart } = useCart();
+  const { totalItems, openCart, cartBadgePulse } = useCart();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -49,12 +49,16 @@ export function Header() {
           <button
             type="button"
             onClick={openCart}
+            data-cart-anchor
             className="relative rounded-full border border-white/15 px-3 py-2 text-[11px] uppercase tracking-wider text-white/80 transition hover:border-neon hover:text-neon"
             aria-label="Abrir carrito"
           >
             Carrito
             {totalItems > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neon text-[10px] font-bold text-white">
+              <span
+                key={cartBadgePulse}
+                className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neon text-[10px] font-bold text-white animate-cart-bump"
+              >
                 {totalItems}
               </span>
             )}

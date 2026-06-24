@@ -188,7 +188,9 @@ function MenuCategoryBlock({
             key={item.id}
             item={item}
             accentColor={accent}
-            onAdd={(selectedSize) => onAddItem(item, { selectedSize })}
+            onAdd={(selectedSize, flyFrom) =>
+              onAddItem(item, { selectedSize, flyFrom })
+            }
           />
         ))}
       </div>
@@ -203,7 +205,7 @@ function MenuItemCard({
 }: {
   item: MenuItem;
   accentColor: string;
-  onAdd: (selectedSize?: MenuItemSize) => void;
+  onAdd: (selectedSize?: MenuItemSize, flyFrom?: DOMRect) => void;
 }) {
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>(
     item.sizes?.[0],
@@ -292,9 +294,11 @@ function MenuItemCard({
 
         <button
           type="button"
-          onClick={() => onAdd(selectedSize)}
+          onClick={(e) =>
+            onAdd(selectedSize, e.currentTarget.getBoundingClientRect())
+          }
           disabled={hasSizes && !selectedSize}
-          className="mt-auto w-full rounded-full border py-2.5 text-[11px] uppercase tracking-[0.2em] text-white transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-auto w-full rounded-full border py-2.5 text-[11px] uppercase tracking-[0.2em] text-white transition hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           style={{
             borderColor: `${accentColor}66`,
           }}

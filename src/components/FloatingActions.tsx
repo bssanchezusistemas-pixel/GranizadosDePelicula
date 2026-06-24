@@ -4,7 +4,7 @@ import { buildWhatsAppUrl } from "@/data/menu";
 import { useCart } from "@/context/CartContext";
 
 export function FloatingActions() {
-  const { totalItems, openCart, buildOrderMessage } = useCart();
+  const { totalItems, openCart, buildOrderMessage, cartBadgePulse } = useCart();
 
   const whatsappUrl = buildWhatsAppUrl(buildOrderMessage());
   const tienePedido = totalItems > 0;
@@ -15,10 +15,14 @@ export function FloatingActions() {
         <button
           type="button"
           onClick={openCart}
+          data-cart-anchor
           className="flex items-center gap-2 rounded-full border border-white/20 bg-cinema-dark/95 px-4 py-3 text-[11px] uppercase tracking-wider text-white shadow-lg backdrop-blur"
         >
           Ver pedido
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neon text-[11px] font-bold">
+          <span
+            key={cartBadgePulse}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-neon text-[11px] font-bold animate-cart-bump"
+          >
             {totalItems}
           </span>
         </button>

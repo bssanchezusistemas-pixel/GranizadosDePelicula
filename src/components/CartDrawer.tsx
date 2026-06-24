@@ -38,7 +38,7 @@ export function CartDrawer() {
         className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
         onClick={closeCart}
       />
-      <aside className="fixed inset-x-0 bottom-0 z-[70] max-h-[90dvh] overflow-hidden rounded-t-3xl border border-white/10 bg-cinema-dark shadow-2xl">
+      <aside className="cart-drawer-enter fixed inset-x-0 bottom-0 z-[70] max-h-[90dvh] overflow-hidden rounded-t-3xl border border-white/10 bg-cinema-dark shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-lg uppercase text-white">
