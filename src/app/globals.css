@@ -10,6 +10,10 @@
   --font-body: "Helvetica Neue", Arial, sans-serif;
 }
 
+:root {
+  --fab-clearance: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 * {
   box-sizing: border-box;
 }
@@ -154,7 +158,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cart-fly-particle,
   .animate-cart-bump,
-  .cart-drawer-enter {
+  .cart-drawer-enter,
+  .animate-marquee,
+  .animate-pulse-neon,
+  .menu-intro {
     animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 }

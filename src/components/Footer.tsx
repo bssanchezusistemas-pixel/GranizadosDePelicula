@@ -2,7 +2,7 @@ import { BUSINESS } from "@/data/menu";
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-cinema-black py-10">
+    <footer className="border-t border-white/5 bg-cinema-black py-10 pb-[var(--fab-clearance)] sm:pb-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-center">
         <p className="font-[family-name:var(--font-display)] text-sm uppercase tracking-[0.25em] text-white">
           {BUSINESS.name}

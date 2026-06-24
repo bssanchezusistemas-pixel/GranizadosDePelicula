@@ -74,7 +74,7 @@ export function MenuSection() {
     <section
       ref={sectionRef}
       id="menu"
-      className="relative bg-cinema-dark py-20"
+      className="relative bg-cinema-dark py-20 pb-[calc(5rem+var(--fab-clearance))]"
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon/40 to-transparent" />
 
@@ -94,16 +94,16 @@ export function MenuSection() {
 
         <nav
           aria-label="Categorías del menú"
-          className="sticky top-[68px] z-40 -mx-4 mb-10 border-b border-white/5 bg-cinema-dark/95 px-4 py-3 backdrop-blur-md sm:top-[72px]"
+          className="sticky top-[68px] z-40 -mx-4 mb-8 border-b border-white/5 bg-cinema-dark/95 backdrop-blur-md sm:top-[72px] sm:mb-10"
         >
-          <div className="flex flex-wrap gap-2">
+          <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 py-2.5 sm:flex-wrap sm:overflow-visible sm:py-3">
             {MENU_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => scrollToCategory(cat.id)}
                 aria-current={activeCategory === cat.id ? "true" : undefined}
-                className={`rounded-full border px-4 py-2 text-[10px] uppercase tracking-[0.15em] transition sm:px-5 sm:py-2.5 sm:text-[11px] ${
+                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[10px] uppercase tracking-[0.15em] transition sm:px-5 sm:py-2.5 sm:text-[11px] ${
                   activeCategory === cat.id
                     ? "border-neon bg-neon/15 text-white neon-border"
                     : "border-white/10 text-white/60 hover:border-white/30"

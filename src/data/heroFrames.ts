@@ -18,8 +18,8 @@ export function buildFrameSequence(step: number): number[] {
 }
 
 export function getFrameStep(isMobile: boolean, saveData = false): number {
-  if (saveData) return 6;
-  return isMobile ? 4 : 2;
+  if (saveData) return 8;
+  return isMobile ? 5 : 2;
 }
 
 export const HERO_BG = "/hero-bg.jpeg";
