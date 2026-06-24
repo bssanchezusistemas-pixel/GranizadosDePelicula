@@ -15,6 +15,26 @@ export function rangoDiaBogota(fecha: string) {
   return { inicio, fin };
 }
 
+/** Lunes de la semana ISO (semana empieza lunes, zona Bogotá). */
+export function inicioSemanaBogota(fecha: string): string {
+  const [y, m, d] = fecha.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const day = utc.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  utc.setUTCDate(utc.getUTCDate() + diff);
+  return utc.toISOString().slice(0, 10);
+}
+
+export function rangoSemanaBogota(fecha: string) {
+  const lunes = inicioSemanaBogota(fecha);
+  const [y, m, d] = lunes.split("-").map(Number);
+  const domingo = new Date(Date.UTC(y, m - 1, d + 6, 12, 0, 0));
+  const domingoStr = domingo.toISOString().slice(0, 10);
+  const inicio = rangoDiaBogota(lunes).inicio;
+  const fin = rangoDiaBogota(domingoStr).fin;
+  return { lunes, domingo: domingoStr, inicio, fin };
+}
+
 export function formatHoraBogota(iso: string) {
   return new Date(iso).toLocaleTimeString("es-CO", {
     timeZone: BOGOTA_TZ,

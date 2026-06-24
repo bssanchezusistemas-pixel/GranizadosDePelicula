@@ -641,25 +641,75 @@ export async function reiniciarDiaCajaAction() {
   const supabase = createServiceClient();
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
+  const ahora = new Date().toISOString();
 
-  await supabase
+  const { data: pedidosHoy, error: errPedidos } = await supabase
     .from("pedidos_caja")
-    .update({
-      estado: "cerrado",
-      cerrado_en: new Date().toISOString(),
-    })
-    .eq("estado", "abierto");
-
-  await supabase
-    .from("pedidos_caja")
-    .delete()
+    .select("id, total, forma_pago, tipo_entrega, estado")
     .gte("creado_en", inicio)
     .lte("creado_en", fin);
 
-  await supabase
+  if (errPedidos) throw new Error(errPedidos.message);
+
+  const pedidos = pedidosHoy ?? [];
+  const totalVendido = pedidos.reduce((s, p) => s + Number(p.total), 0);
+  const totalEfectivo = pedidos
+    .filter((p) => p.forma_pago === "efectivo")
+    .reduce((s, p) => s + Number(p.total), 0);
+  const totalTransferencia = pedidos
+    .filter((p) => p.forma_pago === "transferencia")
+    .reduce((s, p) => s + Number(p.total), 0);
+
+  const { error: errCerrar } = await supabase
+    .from("pedidos_caja")
+    .update({
+      estado: "cerrado",
+      cerrado_en: ahora,
+    })
+    .eq("estado", "abierto");
+
+  if (errCerrar) throw new Error(errCerrar.message);
+
+  const { error: errCocina } = await supabase
+    .from("pedido_items_caja")
+    .update({ estado_cocina: "listo" })
+    .eq("estado_cocina", "pendiente")
+    .gte("creado_en", inicio)
+    .lte("creado_en", fin);
+
+  if (errCocina) throw new Error(errCocina.message);
+
+  const { error: errMesas } = await supabase
     .from("ubicaciones")
     .update({ estado: "libre", pedido_abierto_id: null })
     .neq("id", "00000000-0000-0000-0000-000000000000");
+
+  if (errMesas) throw new Error(errMesas.message);
+
+  const { error: errCierre } = await supabase.from("cierres_diarios").insert({
+    fecha,
+    tipo: "caja",
+    pedidos_caja_count: pedidos.length,
+    pedidos_domicilio_count: 0,
+    totales: {
+      total_vendido: totalVendido,
+      total_efectivo: totalEfectivo,
+      total_transferencia: totalTransferencia,
+      por_tipo: {
+        mesa: pedidos.filter((p) => p.tipo_entrega === "mesa").length,
+        recoger: pedidos.filter((p) => p.tipo_entrega === "recoger").length,
+        domicilio: pedidos.filter((p) => p.tipo_entrega === "domicilio").length,
+      },
+    },
+    cerrado_en: ahora,
+  });
+
+  if (
+    errCierre &&
+    !errCierre.message.includes("Could not find the table")
+  ) {
+    throw new Error(errCierre.message);
+  }
 
   revalidateCaja();
 }

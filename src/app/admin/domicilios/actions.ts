@@ -557,14 +557,21 @@ export async function reiniciarDiaAction(fecha: string) {
   const supabase = await createClient();
 
   const { inicio, fin } = rangoDiaBogota(fecha);
+  const ahora = new Date().toISOString();
 
-  const { error: errPedidos } = await supabase
+  const { data: pedidosDom, error: errCount } = await supabase
     .from("pedidos_domicilio")
-    .delete()
+    .select("id, valor_pedido, forma_pago")
     .gte("creado_en", inicio)
     .lte("creado_en", fin);
 
-  if (errPedidos) throw new Error(errPedidos.message);
+  if (errCount) throw new Error(errCount.message);
+
+  const pedidos = pedidosDom ?? [];
+  const totalDomicilios = pedidos.reduce(
+    (s, p) => s + Number(p.valor_pedido),
+    0,
+  );
 
   const { error: errTurnos } = await supabase
     .from("turnos")
@@ -576,5 +583,25 @@ export async function reiniciarDiaAction(fecha: string) {
     .eq("fecha", fecha);
 
   if (errTurnos) throw new Error(errTurnos.message);
+
+  const { error: errCierre } = await supabase.from("cierres_diarios").insert({
+    fecha,
+    tipo: "domicilios",
+    pedidos_caja_count: 0,
+    pedidos_domicilio_count: pedidos.length,
+    totales: {
+      total_domicilios: totalDomicilios,
+      pedidos_efectivo: pedidos.filter((p) => p.forma_pago === "efectivo").length,
+    },
+    cerrado_en: ahora,
+  });
+
+  if (
+    errCierre &&
+    !errCierre.message.includes("Could not find the table")
+  ) {
+    throw new Error(errCierre.message);
+  }
+
   revalidateDomicilios();
 }

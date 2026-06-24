@@ -45,13 +45,13 @@ export function ReiniciarDiaModal({
 
         <div className="space-y-4 px-6 py-6">
           <p className="text-sm text-zinc-300">
-            Esto borrará los{" "}
-            <span className="font-bold text-white">{totalPedidos} pedidos</span>{" "}
-            de hoy y pondrá en cero el cuadre de caja de los{" "}
+            Esto pondrá en cero el cuadre de caja de los{" "}
             <span className="font-bold text-white">
               {domiciliariosEnTurno} domiciliarios
             </span>{" "}
-            en turno.
+            en turno. Los{" "}
+            <span className="font-bold text-white">{totalPedidos} pedidos</span>{" "}
+            de hoy se conservan en el historial.
           </p>
           <p className="text-xs text-zinc-500">
             Las jornadas abiertas y la base de cambio de cada domiciliario se

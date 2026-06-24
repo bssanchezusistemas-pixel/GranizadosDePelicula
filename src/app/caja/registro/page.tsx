@@ -36,7 +36,7 @@ export default function RegistroPage() {
   async function handleReiniciar() {
     if (
       !confirm(
-        "¿Reiniciar el registro del día? Se borrarán todos los pedidos de caja de hoy.",
+        "¿Cerrar operación del día? Se liberarán mesas y cocina. El registro de ventas de hoy se conserva.",
       )
     ) {
       return;
@@ -68,10 +68,10 @@ export default function RegistroPage() {
         <button
           type="button"
           onClick={handleReiniciar}
-          disabled={pedidos.length === 0 || reiniciando}
+          disabled={reiniciando}
           className="rounded-full border border-amber-700/50 px-5 py-2 text-xs font-bold uppercase tracking-wide text-amber-300 transition hover:border-amber-500 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
         >
-          {reiniciando ? "Reiniciando..." : "Reiniciar día"}
+          {reiniciando ? "Cerrando..." : "Cerrar operación"}
         </button>
       </div>
 
