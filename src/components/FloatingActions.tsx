@@ -7,10 +7,11 @@ export function FloatingActions() {
   const { totalItems, openCart, buildOrderMessage } = useCart();
 
   const whatsappUrl = buildWhatsAppUrl(buildOrderMessage());
+  const tienePedido = totalItems > 0;
 
   return (
     <div className="fixed bottom-5 right-4 z-40 flex flex-col items-end gap-3">
-      {totalItems > 0 && (
+      {tienePedido && (
         <button
           type="button"
           onClick={openCart}
@@ -23,15 +24,26 @@ export function FloatingActions() {
         </button>
       )}
 
-      <a
-        href={whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Ordenar por WhatsApp"
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-[0_0_24px_rgba(37,211,102,0.45)] transition hover:scale-105"
-      >
-        <WhatsAppIcon />
-      </a>
+      {tienePedido ? (
+        <button
+          type="button"
+          onClick={openCart}
+          aria-label="Completar pedido"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-[0_0_24px_rgba(37,211,102,0.45)] transition hover:scale-105"
+        >
+          <WhatsAppIcon />
+        </button>
+      ) : (
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Ordenar por WhatsApp"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-[0_0_24px_rgba(37,211,102,0.45)] transition hover:scale-105"
+        >
+          <WhatsAppIcon />
+        </a>
+      )}
     </div>
   );
 }
