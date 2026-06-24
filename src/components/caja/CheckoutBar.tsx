@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatCOP } from "@/lib/currency";
 import { calcularDevuelta } from "@/data/domicilios";
 import {
@@ -7,6 +8,7 @@ import {
   FORMA_PAGO_LABEL,
   TIPO_COMISION_LABEL,
   TIPO_ENTREGA_LABEL,
+  type DomiciliarioConJornada,
   type TipoComision,
   type TipoEntrega,
 } from "@/data/caja";
@@ -24,6 +26,9 @@ interface CheckoutBarProps {
   direccion: string;
   pagaCon: number;
   comisionPagadaPor: TipoComision | null;
+  domiciliarios: DomiciliarioConJornada[];
+  domiciliarioId: string | null;
+  cargandoDomiciliarios: boolean;
   carritoVacio: boolean;
   confirmando: boolean;
   onTipoEntrega: (t: TipoEntrega) => void;
@@ -33,6 +38,7 @@ interface CheckoutBarProps {
   onDireccion: (d: string) => void;
   onPagaCon: (n: number) => void;
   onComisionPagadaPor: (t: TipoComision) => void;
+  onDomiciliario: (id: string | null) => void;
   onConfirmar: () => void;
 }
 
@@ -50,6 +56,9 @@ export function CheckoutBar({
   direccion,
   pagaCon,
   comisionPagadaPor,
+  domiciliarios,
+  domiciliarioId,
+  cargandoDomiciliarios,
   carritoVacio,
   confirmando,
   onTipoEntrega,
@@ -59,6 +68,7 @@ export function CheckoutBar({
   onDireccion,
   onPagaCon,
   onComisionPagadaPor,
+  onDomiciliario,
   onConfirmar,
 }: CheckoutBarProps) {
   const esMesa = tipoEntrega === "mesa";
@@ -69,6 +79,9 @@ export function CheckoutBar({
   const sinNombreRecoge = esRecoger && nombreRecoge.trim().length < 2;
   const direccionInvalida = esDomicilio && direccion.trim().length < 5;
   const sinComision = esDomicilio && !comisionPagadaPor;
+  const sinDomiciliario = esDomicilio && !domiciliarioId;
+  const sinJornadaDomicilio =
+    esDomicilio && !cargandoDomiciliarios && domiciliarios.length === 0;
 
   const totalConComision =
     esDomicilio && comisionPagadaPor === "cliente"
@@ -99,6 +112,8 @@ export function CheckoutBar({
     !sinNombreRecoge &&
     !direccionInvalida &&
     !sinComision &&
+    !sinDomiciliario &&
+    !sinJornadaDomicilio &&
     !pagaConInsuficiente &&
     !faltaPagaCon &&
     !confirmando;
@@ -209,6 +224,49 @@ export function CheckoutBar({
       {esDomicilio && (
         <div className="mb-4">
           <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
+            Repartidor <span className="text-neon">*</span>
+          </label>
+          {cargandoDomiciliarios ? (
+            <p className="text-sm text-white/40">Cargando repartidores...</p>
+          ) : domiciliarios.length === 0 ? (
+            <div className="rounded-lg border border-amber-700/40 bg-amber-900/10 px-4 py-3 text-sm text-amber-200">
+              <p className="font-bold">No hay repartidores con jornada iniciada.</p>
+              <p className="mt-1 text-amber-200/80">
+                El admin debe iniciar jornada en{" "}
+                <Link href="/caja/domicilios" className="underline">
+                  Domicilios
+                </Link>
+                .
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {domiciliarios.map((d) => {
+                const activo = domiciliarioId === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => onDomiciliario(d.id)}
+                    aria-pressed={activo}
+                    className={`rounded-lg border py-3 text-sm font-bold transition ${
+                      activo
+                        ? "border-neon bg-neon/15 text-white"
+                        : "border-white/10 text-white/60 hover:border-white/30"
+                    }`}
+                  >
+                    {d.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {esDomicilio && (
+        <div className="mb-4">
+          <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
             Dirección de entrega <span className="text-neon">*</span>
           </label>
           <input
@@ -307,9 +365,13 @@ export function CheckoutBar({
             ? "Carrito vacío"
             : sinUbicacion
               ? "Selecciona mesa"
-              : sinComision
-                ? "Elige quién paga comisión"
-                : `Confirmar pedido · ${formatCOP(totalConComision)}`}
+              : sinJornadaDomicilio
+              ? "Inicia jornada en Domicilios"
+              : sinDomiciliario
+                ? "Selecciona repartidor"
+                : sinComision
+                  ? "Elige quién paga comisión"
+                  : `Confirmar pedido · ${formatCOP(totalConComision)}`}
       </button>
     </div>
   );

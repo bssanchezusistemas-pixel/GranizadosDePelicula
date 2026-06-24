@@ -60,7 +60,7 @@ export default function AdminMesasPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/admin/domicilios"
+              href="/caja/domicilios"
               className="rounded-full border border-neon/50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-neon"
             >
               Domicilios

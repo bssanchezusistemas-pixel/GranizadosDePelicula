@@ -76,7 +76,7 @@ export default function AdminMeserosPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/admin/domicilios"
+              href="/caja/domicilios"
               className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white/60 hover:border-white/30"
             >
               Domicilios

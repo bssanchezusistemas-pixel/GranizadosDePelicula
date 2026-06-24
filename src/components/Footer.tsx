@@ -14,7 +14,7 @@ export function Footer() {
           Demo premium · Precios referenciales
         </p>
         <a
-          href="/admin/domicilios"
+          href="/caja/domicilios"
           className="mt-2 text-[10px] uppercase tracking-[0.2em] text-white/20 transition hover:text-neon"
         >
           Panel domicilios

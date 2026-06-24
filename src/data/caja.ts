@@ -98,6 +98,13 @@ export interface NuevoPedidoInput {
   direccion?: string;
   pagaCon?: number;
   comisionPagadaPor?: TipoComision;
+  domiciliarioId?: string;
+}
+
+export interface DomiciliarioConJornada {
+  id: string;
+  nombre: string;
+  turno_id: string;
 }
 
 export function resumirItems(

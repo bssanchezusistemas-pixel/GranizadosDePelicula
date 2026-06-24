@@ -5,16 +5,23 @@ import { calcularDevuelta } from "@/data/domicilios";
 import {
   COMISION_DOMICILIO,
   PEDIDO_INICIAL,
+  type DomiciliarioConJornada,
   type ItemPedidoCarrito,
   type Mesero,
   type NuevoPedidoInput,
   type PedidoCaja,
   type PedidoItemCaja,
   type Ubicacion,
+  resumirItems,
 } from "@/data/caja";
 import { fechaHoyBogota, rangoDiaBogota } from "@/lib/dates";
 import { requireSupabaseAdmin, isSupabaseAdmin } from "@/lib/admin-auth";
 import { sanitizeCartItems } from "@/lib/menu-prices";
+import {
+  getTurnoDelDia,
+  sincronizarTurnoConPedidos,
+} from "@/app/admin/domicilios/actions";
+import { trabajaSinBase } from "@/data/domicilios";
 import {
   clearCajaSessionCookie,
   getCajaSession,
@@ -37,6 +44,7 @@ function revalidateCaja() {
   revalidatePath("/caja");
   revalidatePath("/caja/registro");
   revalidatePath("/caja/mesas");
+  revalidatePath("/caja/domicilios");
   revalidatePath("/cocina");
   revalidatePath("/admin/mesas");
 }
@@ -134,6 +142,41 @@ export async function getUbicacionesAction(): Promise<Ubicacion[]> {
   return (data as Ubicacion[]) ?? [];
 }
 
+export async function getDomiciliariosConJornadaAction(): Promise<
+  DomiciliarioConJornada[]
+> {
+  await requireCajaSession();
+  const supabase = createServiceClient();
+  const fecha = fechaHoyBogota();
+
+  const { data: domiciliarios, error } = await supabase
+    .from("domiciliarios")
+    .select("id, nombre")
+    .eq("activo", true)
+    .order("nombre");
+
+  if (error) throw new Error(error.message);
+
+  const { data: turnos, error: errTurnos } = await supabase
+    .from("turnos")
+    .select("id, domiciliario_id")
+    .eq("fecha", fecha);
+
+  if (errTurnos) throw new Error(errTurnos.message);
+
+  const turnoPorDomiciliario = new Map(
+    (turnos ?? []).map((t) => [t.domiciliario_id as string, t.id as string]),
+  );
+
+  return (domiciliarios ?? [])
+    .filter((d) => turnoPorDomiciliario.has(d.id))
+    .map((d) => ({
+      id: d.id,
+      nombre: d.nombre,
+      turno_id: turnoPorDomiciliario.get(d.id)!,
+    }));
+}
+
 async function nextNumeroPedido(supabase: ReturnType<typeof createServiceClient>) {
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
@@ -223,6 +266,9 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   }
   if (input.tipoEntrega === "domicilio" && !input.comisionPagadaPor) {
     throw new Error("Indica quién paga la comisión del domicilio.");
+  }
+  if (input.tipoEntrega === "domicilio" && !input.domiciliarioId) {
+    throw new Error("Selecciona un repartidor con jornada iniciada.");
   }
 
   const total = calcularTotalPedido(input, items);
@@ -336,6 +382,73 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
 
     if (errPed) throw new Error(errPed.message);
     pedidoId = pedido.id;
+
+    if (input.tipoEntrega === "domicilio" && input.domiciliarioId) {
+      const fecha = fechaHoyBogota();
+      const turno = await getTurnoDelDia(
+        supabase,
+        input.domiciliarioId,
+        fecha,
+      );
+
+      if (!turno) {
+        throw new Error(
+          "El repartidor seleccionado no tiene jornada iniciada hoy.",
+        );
+      }
+
+      const baseEfectivo = Number(turno.base_efectivo ?? 0);
+      const subtotal = incrementoItems;
+      if (
+        input.formaPago === "efectivo" &&
+        trabajaSinBase(baseEfectivo) &&
+        (!pagaCon || pagaCon < subtotal)
+      ) {
+        throw new Error(
+          "Sin base de cambio debes registrar con cuánto paga el cliente.",
+        );
+      }
+
+      const numeroStr = String(pedido.numero_pedido);
+      const { data: duplicado } = await supabase
+        .from("pedidos_domicilio")
+        .select("id")
+        .eq("numero_pedido", numeroStr)
+        .maybeSingle();
+
+      if (duplicado) {
+        throw new Error(
+          `El pedido #${numeroStr} ya está registrado en domicilios.`,
+        );
+      }
+
+      const filaDomicilio: Record<string, unknown> = {
+        numero_pedido: numeroStr,
+        domiciliario_id: input.domiciliarioId,
+        turno_id: turno.id,
+        canal: "local",
+        items: resumirItems(items),
+        direccion: input.direccion?.trim() ?? null,
+        valor_pedido: subtotal,
+        forma_pago: input.formaPago,
+        paga_con: input.formaPago === "efectivo" ? pagaCon : null,
+        devuelta,
+        estado: "pendiente",
+        pedido_caja_id: pedidoId,
+      };
+
+      const { error: errDom } = await supabase
+        .from("pedidos_domicilio")
+        .insert(filaDomicilio);
+
+      if (errDom) throw new Error(errDom.message);
+
+      await sincronizarTurnoConPedidos(
+        supabase,
+        input.domiciliarioId,
+        fecha,
+      );
+    }
   }
 
   const filas = items.map((item) => ({

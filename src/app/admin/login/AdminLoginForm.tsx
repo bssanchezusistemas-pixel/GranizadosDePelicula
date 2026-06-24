@@ -9,7 +9,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 export function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/admin/domicilios";
+  const next = searchParams.get("next") || "/caja/domicilios";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

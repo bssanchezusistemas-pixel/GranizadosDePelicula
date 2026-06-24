@@ -24,6 +24,9 @@ export function CajaShell({ session, children }: CajaShellProps) {
 
   const esRegistro = pathname?.startsWith("/caja/registro");
   const esMesas = pathname?.startsWith("/caja/mesas");
+  const esDomicilios = pathname?.startsWith("/caja/domicilios");
+  const esPedidos =
+    !esRegistro && !esMesas && !esDomicilios && pathname === "/caja";
 
   const linkBase =
     "rounded-full px-4 py-2 text-xs font-bold tracking-wide transition";
@@ -58,7 +61,7 @@ export function CajaShell({ session, children }: CajaShellProps) {
             <Link
               href="/caja"
               className={`${linkBase} border ${
-                !esRegistro && !esMesas ? linkActivo : linkInactivo
+                esPedidos ? linkActivo : linkInactivo
               }`}
             >
               PEDIDOS
@@ -83,8 +86,10 @@ export function CajaShell({ session, children }: CajaShellProps) {
             </Link>
             {esAdmin && (
               <Link
-                href="/admin/domicilios"
-                className={`${linkBase} border ${linkInactivo}`}
+                href="/caja/domicilios"
+                className={`${linkBase} border ${
+                  esDomicilios ? linkActivo : linkInactivo
+                }`}
               >
                 DOMICILIOS
               </Link>

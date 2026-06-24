@@ -7,12 +7,14 @@ import { CartPanel, itemCarritoKey } from "@/components/caja/CartPanel";
 import { CheckoutBar } from "@/components/caja/CheckoutBar";
 import {
   confirmarPedidoAction,
+  getDomiciliariosConJornadaAction,
   getSiguienteNumeroAction,
   getUbicacionesAction,
 } from "@/app/caja/actions";
 import type { FormaPago } from "@/data/domicilios";
 import {
   COMISION_DOMICILIO,
+  type DomiciliarioConJornada,
   type ItemPedidoCarrito,
   type PedidoCaja,
   type TipoComision,
@@ -33,6 +35,11 @@ export default function CajaPage() {
   const [pagaCon, setPagaCon] = useState(0);
   const [comisionPagadaPor, setComisionPagadaPor] =
     useState<TipoComision | null>(null);
+  const [domiciliarios, setDomiciliarios] = useState<DomiciliarioConJornada[]>(
+    [],
+  );
+  const [domiciliarioId, setDomiciliarioId] = useState<string | null>(null);
+  const [cargandoDomiciliarios, setCargandoDomiciliarios] = useState(false);
   const [ultimoPedido, setUltimoPedido] = useState<PedidoCaja | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +60,28 @@ export default function CajaPage() {
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
+
+  const cargarDomiciliarios = useCallback(async () => {
+    setCargandoDomiciliarios(true);
+    try {
+      const lista = await getDomiciliariosConJornadaAction();
+      setDomiciliarios(lista);
+      setDomiciliarioId((prev) =>
+        prev && lista.some((d) => d.id === prev) ? prev : null,
+      );
+    } catch {
+      setDomiciliarios([]);
+      setDomiciliarioId(null);
+    } finally {
+      setCargandoDomiciliarios(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tipoEntrega === "domicilio") {
+      cargarDomiciliarios();
+    }
+  }, [tipoEntrega, cargarDomiciliarios]);
 
   const total = useMemo(
     () => items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0),
@@ -110,6 +139,7 @@ export default function CajaPage() {
         direccion: direccion.trim() || undefined,
         pagaCon: pagaCon > 0 ? pagaCon : undefined,
         comisionPagadaPor: comisionPagadaPor ?? undefined,
+        domiciliarioId: domiciliarioId ?? undefined,
       });
 
       setItems([]);
@@ -118,6 +148,7 @@ export default function CajaPage() {
         setDireccion("");
         setPagaCon(0);
         setComisionPagadaPor(null);
+        setDomiciliarioId(null);
       }
       setUltimoPedido(pedido);
       await cargarDatos();
@@ -214,6 +245,7 @@ export default function CajaPage() {
                   setDireccion("");
                   setPagaCon(0);
                   setComisionPagadaPor(null);
+                  setDomiciliarioId(null);
                 }
               }}
               onFormaPago={setFormaPago}
@@ -222,6 +254,10 @@ export default function CajaPage() {
               onDireccion={setDireccion}
               onPagaCon={setPagaCon}
               onComisionPagadaPor={setComisionPagadaPor}
+              domiciliarios={domiciliarios}
+              domiciliarioId={domiciliarioId}
+              cargandoDomiciliarios={cargandoDomiciliarios}
+              onDomiciliario={setDomiciliarioId}
               onConfirmar={confirmar}
             />
           </div>

@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
   const isCajaRoute = pathname.startsWith("/caja");
   const isCajaLogin = pathname === "/caja/login";
   const isCajaRegistro = pathname.startsWith("/caja/registro");
+  const isCajaDomicilios = pathname.startsWith("/caja/domicilios");
   const isCocinaRoute =
     pathname === "/cocina" || pathname.startsWith("/cocina/");
 
@@ -27,6 +28,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isCajaRegistro && session?.rol !== "admin") {
+    return NextResponse.redirect(new URL("/caja", request.url));
+  }
+
+  if (isCajaDomicilios && session?.rol !== "admin") {
     return NextResponse.redirect(new URL("/caja", request.url));
   }
 

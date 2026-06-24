@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { requireSupabaseAdmin } from "@/lib/admin-auth";
 import { rangoDiaBogota, fechaHoyBogota } from "@/lib/dates";
@@ -32,7 +34,7 @@ function formatSupabaseError(message: string): string {
 }
 
 async function assertNumeroPedidoDisponible(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient,
   numeroPedido: string,
   excludePedidoId?: string,
 ) {
@@ -60,8 +62,13 @@ async function assertNumeroPedidoDisponible(
   }
 }
 
-async function getTurnoDelDia(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+function revalidateDomicilios() {
+  revalidatePath("/caja/domicilios");
+  revalidatePath("/admin/domicilios");
+}
+
+export async function getTurnoDelDia(
+  supabase: SupabaseClient,
   domiciliarioId: string,
   fecha: string,
 ) {
@@ -77,7 +84,7 @@ async function getTurnoDelDia(
 }
 
 async function getPedidosDelDomiciliarioEnFecha(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient,
   domiciliarioId: string,
   fecha: string,
 ) {
@@ -95,8 +102,8 @@ async function getPedidosDelDomiciliarioEnFecha(
 }
 
 /** Ajusta efectivo_entregado y cuadrado cuando cambian los pedidos del día. */
-async function sincronizarTurnoConPedidos(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+export async function sincronizarTurnoConPedidos(
+  supabase: SupabaseClient,
   domiciliarioId: string,
   fecha: string,
 ) {
@@ -291,6 +298,7 @@ export async function iniciarJornadaAction(input: {
 
   if (error) throw new Error(formatSupabaseError(error.message));
 
+  revalidateDomicilios();
   return data as Turno;
 }
 
@@ -328,6 +336,7 @@ export async function actualizarBaseEfectivoAction(input: {
     input.domiciliario_id,
     input.fecha,
   );
+  revalidateDomicilios();
 }
 
 function validarPagoEfectivoSinBase(
@@ -396,6 +405,8 @@ export async function crearDomicilioAction(input: NuevoDomicilioInput) {
     throw new Error(error.message);
   }
 
+  await sincronizarTurnoConPedidos(supabase, input.domiciliario_id, fecha);
+  revalidateDomicilios();
   return data as PedidoDomicilio;
 }
 
@@ -453,6 +464,7 @@ export async function cuadrarCajaAction(input: {
 
   if (error) throw new Error(error.message);
 
+  revalidateDomicilios();
   return { efectivoEntregado: nuevoEntregado, cuadrado };
 }
 
@@ -505,6 +517,7 @@ export async function actualizarPedidoAction(input: EditarPedidoInput) {
 
   await sincronizarTurnoConPedidos(supabase, input.domiciliario_id, fecha);
 
+  revalidateDomicilios();
   return data as PedidoDomicilio;
 }
 
@@ -536,6 +549,7 @@ export async function eliminarPedidoAction(pedidoId: string) {
     pedido.domiciliario_id,
     fecha,
   );
+  revalidateDomicilios();
 }
 
 export async function reiniciarDiaAction(fecha: string) {
@@ -562,4 +576,5 @@ export async function reiniciarDiaAction(fecha: string) {
     .eq("fecha", fecha);
 
   if (errTurnos) throw new Error(errTurnos.message);
+  revalidateDomicilios();
 }
