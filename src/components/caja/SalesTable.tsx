@@ -11,6 +11,8 @@ import {
 
 interface SalesTableProps {
   pedidos: PedidoCaja[];
+  titulo?: string;
+  mensajeVacio?: string;
 }
 
 const columnas = [
@@ -22,7 +24,11 @@ const columnas = [
   "Total",
 ];
 
-export function SalesTable({ pedidos }: SalesTableProps) {
+export function SalesTable({
+  pedidos,
+  titulo = "Ventas del día — detalle",
+  mensajeVacio = "No hay ventas registradas en este período.",
+}: SalesTableProps) {
   const ordenados = [...pedidos].sort(
     (a, b) => a.numero_pedido - b.numero_pedido,
   );
@@ -36,7 +42,7 @@ export function SalesTable({ pedidos }: SalesTableProps) {
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
       <div className="flex items-center justify-between px-5 py-4">
         <div className="text-sm font-bold uppercase tracking-wide">
-          Ventas del día — detalle
+          {titulo}
         </div>
         <span className="rounded-full bg-zinc-800 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
           {pedidos.length} registros
@@ -113,7 +119,7 @@ export function SalesTable({ pedidos }: SalesTableProps) {
                   colSpan={columnas.length}
                   className="px-5 py-8 text-center text-sm text-zinc-500"
                 >
-                  Todavía no hay ventas registradas hoy.
+                  {mensajeVacio}
                 </td>
               </tr>
             )}

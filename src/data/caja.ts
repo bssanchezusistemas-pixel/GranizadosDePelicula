@@ -107,6 +107,28 @@ export interface DomiciliarioConJornada {
   turno_id: string;
 }
 
+export interface ResumenDiaCaja {
+  fecha: string;
+  etiqueta: string;
+  pedidos: number;
+  cerrados: number;
+  total: number;
+  efectivo: number;
+  transferencia: number;
+}
+
+export interface ResumenSemanalCaja {
+  lunes: string;
+  domingo: string;
+  dias: ResumenDiaCaja[];
+  totales: {
+    pedidos: number;
+    total: number;
+    efectivo: number;
+    transferencia: number;
+  };
+}
+
 export function resumirItems(
   items: Pick<ItemPedidoCarrito, "nombre" | "cantidad">[],
   max = 3,

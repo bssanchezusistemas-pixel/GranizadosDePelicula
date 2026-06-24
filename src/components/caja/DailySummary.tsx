@@ -10,11 +10,15 @@ import {
 
 interface DailySummaryProps {
   pedidos: PedidoCaja[];
+  tituloTotal?: string;
 }
 
 const TIPOS: TipoEntrega[] = ["mesa", "recoger", "domicilio"];
 
-export function DailySummary({ pedidos }: DailySummaryProps) {
+export function DailySummary({
+  pedidos,
+  tituloTotal = "Total vendido hoy",
+}: DailySummaryProps) {
   const cerrados = pedidos.filter((p) => p.estado === "cerrado");
   const abiertos = pedidos.filter((p) => p.estado === "abierto");
   const totalVendido = cerrados.reduce((s, p) => s + Number(p.total), 0);
@@ -29,7 +33,7 @@ export function DailySummary({ pedidos }: DailySummaryProps) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3">
         <MetricCard
-          label="Total vendido hoy"
+          label={tituloTotal}
           value={formatCOP(totalVendido)}
           sub={`${cerrados.length} cerrados · ${abiertos.length} abiertos en mesa`}
           subVariant="ok"

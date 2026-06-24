@@ -11,10 +11,11 @@ import {
   type NuevoPedidoInput,
   type PedidoCaja,
   type PedidoItemCaja,
+  type ResumenSemanalCaja,
   type Ubicacion,
   resumirItems,
 } from "@/data/caja";
-import { fechaHoyBogota, rangoDiaBogota } from "@/lib/dates";
+import { fechaHoyBogota, rangoDiaBogota, rangoSemanaBogota, fechaDesdeIsoBogota, diasDeSemana, formatFechaCorta } from "@/lib/dates";
 import { requireSupabaseAdmin, isSupabaseAdmin } from "@/lib/admin-auth";
 import { sanitizeCartItems } from "@/lib/menu-prices";
 import {
@@ -514,9 +515,14 @@ export async function liberarUbicacionAction(ubicacionId: string) {
 }
 
 export async function getPedidosDelDiaAction(): Promise<PedidoCaja[]> {
+  return getPedidosPorFechaAction(fechaHoyBogota());
+}
+
+export async function getPedidosPorFechaAction(
+  fecha: string,
+): Promise<PedidoCaja[]> {
   await requireAdmin();
   const supabase = createServiceClient();
-  const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
 
   const { data, error } = await supabase
@@ -528,6 +534,78 @@ export async function getPedidosDelDiaAction(): Promise<PedidoCaja[]> {
 
   if (error) throw new Error(error.message);
   return (data as PedidoCaja[]) ?? [];
+}
+
+export async function getResumenSemanalCajaAction(
+  fechaReferencia?: string,
+): Promise<ResumenSemanalCaja> {
+  await requireAdmin();
+  const supabase = createServiceClient();
+  const ref = fechaReferencia ?? fechaHoyBogota();
+  const { lunes, domingo, inicio, fin } = rangoSemanaBogota(ref);
+
+  const { data, error } = await supabase
+    .from("pedidos_caja")
+    .select("creado_en, total, forma_pago, estado")
+    .gte("creado_en", inicio)
+    .lte("creado_en", fin);
+
+  if (error) throw new Error(error.message);
+
+  const porDia = new Map<
+    string,
+    { pedidos: number; cerrados: number; total: number; efectivo: number; transferencia: number }
+  >();
+
+  for (const fecha of diasDeSemana(lunes)) {
+    porDia.set(fecha, {
+      pedidos: 0,
+      cerrados: 0,
+      total: 0,
+      efectivo: 0,
+      transferencia: 0,
+    });
+  }
+
+  for (const row of data ?? []) {
+    const fecha = fechaDesdeIsoBogota(row.creado_en as string);
+    const bucket = porDia.get(fecha);
+    if (!bucket) continue;
+
+    bucket.pedidos += 1;
+    if (row.estado === "cerrado") {
+      bucket.cerrados += 1;
+      const monto = Number(row.total);
+      bucket.total += monto;
+      if (row.forma_pago === "efectivo") bucket.efectivo += monto;
+      if (row.forma_pago === "transferencia") bucket.transferencia += monto;
+    }
+  }
+
+  const dias = diasDeSemana(lunes).map((fecha) => {
+    const b = porDia.get(fecha)!;
+    return {
+      fecha,
+      etiqueta: formatFechaCorta(fecha),
+      pedidos: b.pedidos,
+      cerrados: b.cerrados,
+      total: b.total,
+      efectivo: b.efectivo,
+      transferencia: b.transferencia,
+    };
+  });
+
+  const totales = dias.reduce(
+    (acc, d) => ({
+      pedidos: acc.pedidos + d.pedidos,
+      total: acc.total + d.total,
+      efectivo: acc.efectivo + d.efectivo,
+      transferencia: acc.transferencia + d.transferencia,
+    }),
+    { pedidos: 0, total: 0, efectivo: 0, transferencia: 0 },
+  );
+
+  return { lunes, domingo, dias, totales };
 }
 
 export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
