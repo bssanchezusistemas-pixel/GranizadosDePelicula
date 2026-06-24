@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  BUSINESS,
   formatCOP,
   formatCartLineName,
   getCartLineId,
@@ -186,7 +185,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         : [
             "*Entrega:* Recoger en local",
             `*Recoge:* ${nombreRecoge.trim()}`,
-            `*Lugar:* ${BUSINESS.address}, ${BUSINESS.city}`,
           ];
 
     return [
