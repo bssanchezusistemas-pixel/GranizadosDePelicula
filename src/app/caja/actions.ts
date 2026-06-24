@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { calcularDevuelta } from "@/data/domicilios";
 import {
@@ -14,7 +13,13 @@ import {
   type Ubicacion,
 } from "@/data/caja";
 import { fechaHoyBogota, rangoDiaBogota } from "@/lib/dates";
-import { getCajaSession, MESERO_COOKIE } from "@/lib/mesero-session";
+import { requireSupabaseAdmin, isSupabaseAdmin } from "@/lib/admin-auth";
+import { sanitizeCartItems } from "@/lib/menu-prices";
+import {
+  clearCajaSessionCookie,
+  getCajaSession,
+  setCajaSessionCookie,
+} from "@/lib/mesero-session";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /** FK explícita: pedidos_caja ↔ ubicaciones tiene dos relaciones (ubicacion_id y pedido_abierto_id). */
@@ -25,6 +30,8 @@ const PEDIDO_CAJA_DETALLE =
   `*, mesero:meseros(nombre), ${UBICACION_EMBED}, items:pedido_items_caja(*)`;
 
 const PEDIDO_CAJA_RESUMEN = `*, mesero:meseros(nombre), ${UBICACION_EMBED}`;
+
+const COCINA_ITEM_LIMIT = 500;
 
 function revalidateCaja() {
   revalidatePath("/caja");
@@ -42,19 +49,12 @@ async function requireCajaSession() {
   return session;
 }
 
-async function requireMesero() {
-  const session = await getCajaSession();
-  if (!session || session.rol !== "mesero") {
-    throw new Error("Debes iniciar sesión como mesero.");
-  }
-  return session;
-}
-
 async function requireAdmin() {
   const session = await getCajaSession();
   if (!session || session.rol !== "admin") {
     throw new Error("Solo el admin puede hacer esto.");
   }
+  await requireSupabaseAdmin();
   return session;
 }
 
@@ -72,17 +72,11 @@ export async function loginMeseroAction(nombre: string) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Mesero no encontrado.");
 
-  const jar = await cookies();
-  jar.set(
-    MESERO_COOKIE,
-    JSON.stringify({ id: data.id, nombre: data.nombre, rol: "mesero" }),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 12,
-    },
-  );
+  await setCajaSessionCookie({
+    id: data.id,
+    nombre: data.nombre,
+    rol: "mesero",
+  });
 
   return { id: data.id, nombre: data.nombre, rol: "mesero" as const };
 }
@@ -97,32 +91,29 @@ export async function confirmAdminCajaSessionAction() {
   if (!user) {
     throw new Error("Inicia sesión con correo y contraseña de admin.");
   }
+  if (!isSupabaseAdmin(user)) {
+    throw new Error("No tienes permisos de administrador.");
+  }
 
-  const jar = await cookies();
-  jar.set(
-    MESERO_COOKIE,
-    JSON.stringify({ id: user.id, nombre: "Admin", rol: "admin" }),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 12,
-    },
-  );
+  await setCajaSessionCookie({
+    id: user.id,
+    nombre: user.email ?? "Admin",
+    rol: "admin",
+  });
 
-  return { id: user.id, nombre: "Admin", rol: "admin" as const };
+  return { id: user.id, nombre: user.email ?? "Admin", rol: "admin" as const };
 }
 
 export async function logoutMeseroAction() {
-  const jar = await cookies();
-  jar.delete(MESERO_COOKIE);
+  await clearCajaSessionCookie();
 }
 
+/** Público: necesario para la pantalla de login de meseros. */
 export async function getMeserosAction(): Promise<Mesero[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("meseros")
-    .select("*")
+    .select("id, nombre, activo")
     .eq("activo", true)
     .order("nombre");
 
@@ -131,6 +122,7 @@ export async function getMeserosAction(): Promise<Mesero[]> {
 }
 
 export async function getUbicacionesAction(): Promise<Ubicacion[]> {
+  await requireCajaSession();
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("ubicaciones")
@@ -160,8 +152,11 @@ async function nextNumeroPedido(supabase: ReturnType<typeof createServiceClient>
   return Math.max(PEDIDO_INICIAL, Number(data.numero_pedido) + 1);
 }
 
-function calcularTotalPedido(input: NuevoPedidoInput): number {
-  const subtotal = input.items.reduce(
+function calcularTotalPedido(
+  input: NuevoPedidoInput,
+  items: ItemPedidoCarrito[],
+): number {
+  const subtotal = items.reduce(
     (s, i) => s + i.precioUnitario * i.cantidad,
     0,
   );
@@ -174,12 +169,46 @@ function calcularTotalPedido(input: NuevoPedidoInput): number {
   return subtotal;
 }
 
+async function incrementPedidoTotal(
+  supabase: ReturnType<typeof createServiceClient>,
+  pedidoId: string,
+  amount: number,
+) {
+  const { data, error } = await supabase.rpc("increment_pedido_total", {
+    p_pedido_id: pedidoId,
+    p_amount: amount,
+  });
+
+  if (error) {
+    const { data: pedido } = await supabase
+      .from("pedidos_caja")
+      .select("total")
+      .eq("id", pedidoId)
+      .single();
+
+    const nuevoTotal =
+      Number(pedido?.total ?? 0) + amount;
+
+    const { error: errUpd } = await supabase
+      .from("pedidos_caja")
+      .update({ total: nuevoTotal })
+      .eq("id", pedidoId);
+
+    if (errUpd) throw new Error(errUpd.message);
+    return nuevoTotal;
+  }
+
+  return Number(data);
+}
+
 export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   const session = await requireCajaSession();
   const mesero = session.rol === "mesero" ? session : null;
   const supabase = createServiceClient();
 
-  if (input.items.length === 0) {
+  const items = sanitizeCartItems(input.items);
+
+  if (items.length === 0) {
     throw new Error("El carrito está vacío.");
   }
 
@@ -196,7 +225,11 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
     throw new Error("Indica quién paga la comisión del domicilio.");
   }
 
-  const total = calcularTotalPedido(input);
+  const total = calcularTotalPedido(input, items);
+  const incrementoItems = items.reduce(
+    (s, i) => s + i.precioUnitario * i.cantidad,
+    0,
+  );
   let pagaCon = input.pagaCon ?? null;
   let devuelta: number | null = null;
 
@@ -224,25 +257,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
 
     if (ubicacion.pedido_abierto_id && ubicacion.estado === "ocupada") {
       pedidoId = ubicacion.pedido_abierto_id;
-      const nuevoTotal = Number(
-        (
-          await supabase
-            .from("pedidos_caja")
-            .select("total")
-            .eq("id", pedidoId)
-            .single()
-        ).data?.total ?? 0,
-      );
-      const totalActualizado =
-        nuevoTotal +
-        input.items.reduce((s, i) => s + i.precioUnitario * i.cantidad, 0);
-
-      const { error: errUpd } = await supabase
-        .from("pedidos_caja")
-        .update({ total: totalActualizado })
-        .eq("id", pedidoId);
-
-      if (errUpd) throw new Error(errUpd.message);
+      await incrementPedidoTotal(supabase, pedidoId, incrementoItems);
     } else {
       const numero = await nextNumeroPedido(supabase);
       const { data: pedido, error: errPed } = await supabase
@@ -262,12 +277,37 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
       if (errPed) throw new Error(errPed.message);
       pedidoId = pedido.id;
 
-      const { error: errOcc } = await supabase
+      const { data: locked, error: errOcc } = await supabase
         .from("ubicaciones")
         .update({ estado: "ocupada", pedido_abierto_id: pedidoId })
-        .eq("id", input.ubicacionId);
+        .eq("id", input.ubicacionId)
+        .eq("estado", "libre")
+        .is("pedido_abierto_id", null)
+        .select("id")
+        .maybeSingle();
 
       if (errOcc) throw new Error(errOcc.message);
+
+      if (!locked) {
+        await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
+
+        const { data: ub2, error: errUb2 } = await supabase
+          .from("ubicaciones")
+          .select("*")
+          .eq("id", input.ubicacionId)
+          .single();
+
+        if (errUb2) throw new Error(errUb2.message);
+
+        if (ub2.pedido_abierto_id && ub2.estado === "ocupada") {
+          pedidoId = ub2.pedido_abierto_id;
+          await incrementPedidoTotal(supabase, pedidoId, incrementoItems);
+        } else {
+          throw new Error(
+            "La mesa fue tomada por otro mesero. Intenta de nuevo.",
+          );
+        }
+      }
     }
   } else {
     const numero = await nextNumeroPedido(supabase);
@@ -298,7 +338,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
     pedidoId = pedido.id;
   }
 
-  const filas = input.items.map((item) => ({
+  const filas = items.map((item) => ({
     pedido_id: pedidoId,
     producto_id: item.productoId,
     nombre: item.nombre,
@@ -378,7 +418,10 @@ export async function getPedidosDelDiaAction(): Promise<PedidoCaja[]> {
 }
 
 export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
+  await requireCajaSession();
   const supabase = createServiceClient();
+  const fecha = fechaHoyBogota();
+  const { inicio, fin } = rangoDiaBogota(fecha);
 
   const { data: rows, error } = await supabase
     .from("pedido_items_caja")
@@ -417,7 +460,10 @@ export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
     `,
     )
     .eq("estado_cocina", "pendiente")
-    .order("creado_en", { ascending: true });
+    .gte("creado_en", inicio)
+    .lte("creado_en", fin)
+    .order("creado_en", { ascending: true })
+    .limit(COCINA_ITEM_LIMIT);
 
   if (error) throw new Error(error.message);
 
@@ -429,6 +475,9 @@ export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
     const pedido = (
       Array.isArray(pedidoRaw) ? pedidoRaw[0] : pedidoRaw
     ) as PedidoCaja;
+
+    if (pedido.estado === "cerrado") continue;
+
     const item = {
       id: raw.id,
       pedido_id: raw.pedido_id,
@@ -459,6 +508,7 @@ export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
 }
 
 export async function marcarItemListoAction(itemId: string) {
+  await requireCajaSession();
   const supabase = createServiceClient();
   const { error } = await supabase
     .from("pedido_items_caja")
@@ -470,6 +520,7 @@ export async function marcarItemListoAction(itemId: string) {
 }
 
 export async function getSiguienteNumeroAction(): Promise<number> {
+  await requireCajaSession();
   const supabase = createServiceClient();
   return nextNumeroPedido(supabase);
 }
@@ -480,19 +531,19 @@ export async function reiniciarDiaCajaAction() {
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
 
-  const { data: pedidosAbiertos } = await supabase
+  await supabase
     .from("pedidos_caja")
-    .select("id")
+    .update({
+      estado: "cerrado",
+      cerrado_en: new Date().toISOString(),
+    })
+    .eq("estado", "abierto");
+
+  await supabase
+    .from("pedidos_caja")
+    .delete()
     .gte("creado_en", inicio)
     .lte("creado_en", fin);
-
-  if (pedidosAbiertos?.length) {
-    await supabase
-      .from("pedidos_caja")
-      .delete()
-      .gte("creado_en", inicio)
-      .lte("creado_en", fin);
-  }
 
   await supabase
     .from("ubicaciones")
@@ -504,12 +555,7 @@ export async function reiniciarDiaCajaAction() {
 
 /** Admin: misma acción de liberar mesa */
 export async function liberarUbicacionAdminAction(ubicacionId: string) {
-  const { createClient } = await import("@/lib/supabase/server");
-  const supabaseAuth = await createClient();
-  const {
-    data: { user },
-  } = await supabaseAuth.auth.getUser();
-  if (!user) throw new Error("Debes iniciar sesión como admin.");
+  await requireSupabaseAdmin();
 
   const supabase = createServiceClient();
   const { data: ubicacion, error: errUb } = await supabase

@@ -2,19 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import type { Mesero } from "@/data/caja";
+import { requireSupabaseAdmin } from "@/lib/admin-auth";
 import { createServiceClient } from "@/lib/supabase/service";
 
-async function requireAdminAuth() {
-  const { createClient } = await import("@/lib/supabase/server");
-  const supabaseAuth = await createClient();
-  const {
-    data: { user },
-  } = await supabaseAuth.auth.getUser();
-  if (!user) throw new Error("Debes iniciar sesión como admin.");
-}
-
 export async function getMeserosAdminAction(): Promise<Mesero[]> {
-  await requireAdminAuth();
+  await requireSupabaseAdmin();
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("meseros")
@@ -26,7 +18,7 @@ export async function getMeserosAdminAction(): Promise<Mesero[]> {
 }
 
 export async function crearMeseroAction(nombre: string) {
-  await requireAdminAuth();
+  await requireSupabaseAdmin();
   const nombreNorm = nombre.trim();
   if (nombreNorm.length < 2) {
     throw new Error("Escribe un nombre válido.");
@@ -47,7 +39,7 @@ export async function crearMeseroAction(nombre: string) {
 }
 
 export async function toggleMeseroActivoAction(id: string, activo: boolean) {
-  await requireAdminAuth();
+  await requireSupabaseAdmin();
   const supabase = createServiceClient();
   const { error } = await supabase
     .from("meseros")

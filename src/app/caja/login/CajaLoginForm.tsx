@@ -9,13 +9,15 @@ import {
   getMeserosAction,
   loginMeseroAction,
 } from "@/app/caja/actions";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 type ModoLogin = "mesero" | "admin";
 
 export function CajaLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/caja";
+  const next = safeRedirectPath(searchParams.get("next"), "/caja");
+  const sinPermiso = searchParams.get("error") === "sin_permiso";
   const [modo, setModo] = useState<ModoLogin>(
     next.startsWith("/admin") ? "admin" : "mesero",
   );
@@ -64,7 +66,7 @@ export function CajaLoginForm() {
       if (signInError) throw new Error(signInError.message);
 
       await confirmAdminCajaSessionAction();
-      router.push(next.startsWith("/admin") ? next : "/caja");
+      router.push(safeRedirectPath(next, "/caja"));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
@@ -146,6 +148,12 @@ export function CajaLoginForm() {
         </form>
       ) : (
         <form onSubmit={handleAdminSubmit} className="space-y-4">
+          {sinPermiso && (
+            <div className="rounded-lg border border-red-700/40 bg-red-900/15 px-4 py-3 text-sm text-red-200">
+              Tu cuenta no tiene permisos de administrador.
+            </div>
+          )}
+
           {!configured && (
             <div className="rounded-lg border border-amber-700/40 bg-amber-900/15 px-4 py-3 text-sm text-amber-200">
               Falta configurar Supabase en <code>.env.local</code>.

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isSupabaseAdmin } from "@/lib/admin-auth";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -45,6 +46,14 @@ export async function updateSession(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/caja/login";
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isAdminRoute && user && !isSupabaseAdmin(user)) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/caja/login";
+    loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    loginUrl.searchParams.set("error", "sin_permiso");
     return NextResponse.redirect(loginUrl);
   }
 

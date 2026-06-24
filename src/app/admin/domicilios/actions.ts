@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireSupabaseAdmin } from "@/lib/admin-auth";
 import { rangoDiaBogota, fechaHoyBogota } from "@/lib/dates";
 import type {
   Domiciliario,
@@ -191,15 +192,8 @@ function buildResumenDomiciliario(
 export async function getResumenDomiciliariosAction(
   fecha: string,
 ): Promise<DomiciliarioConResumen[]> {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para ver los domicilios.");
-  }
 
   const { inicio, fin } = rangoDiaBogota(fecha);
 
@@ -266,15 +260,8 @@ export async function iniciarJornadaAction(input: {
   fecha: string;
   base_efectivo: number;
 }) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para abrir la jornada.");
-  }
 
   if (input.base_efectivo < 0) {
     throw new Error("La base de efectivo no puede ser negativa.");
@@ -312,15 +299,8 @@ export async function actualizarBaseEfectivoAction(input: {
   fecha: string;
   base_efectivo: number;
 }) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para editar la base.");
-  }
 
   if (input.base_efectivo < 0) {
     throw new Error("La base de efectivo no puede ser negativa.");
@@ -370,15 +350,8 @@ function validarPagoEfectivoSinBase(
 }
 
 export async function crearDomicilioAction(input: NuevoDomicilioInput) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para crear domicilios.");
-  }
 
   const fecha = fechaHoyBogota();
 
@@ -431,15 +404,8 @@ export async function cuadrarCajaAction(input: {
   fecha: string;
   monto: number;
 }) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para cuadrar la caja.");
-  }
 
   if (input.monto <= 0) {
     throw new Error("El monto entregado debe ser mayor a cero.");
@@ -491,15 +457,8 @@ export async function cuadrarCajaAction(input: {
 }
 
 export async function actualizarPedidoAction(input: EditarPedidoInput) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para editar pedidos.");
-  }
 
   const fecha = fechaHoyBogota();
   const numeroPedido = normalizeNumeroPedido(input.numero_pedido);
@@ -550,15 +509,8 @@ export async function actualizarPedidoAction(input: EditarPedidoInput) {
 }
 
 export async function eliminarPedidoAction(pedidoId: string) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para eliminar pedidos.");
-  }
 
   const { data: pedido, error: errPedido } = await supabase
     .from("pedidos_domicilio")
@@ -587,15 +539,8 @@ export async function eliminarPedidoAction(pedidoId: string) {
 }
 
 export async function reiniciarDiaAction(fecha: string) {
+  await requireSupabaseAdmin();
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Debes iniciar sesión para reiniciar el día.");
-  }
 
   const { inicio, fin } = rangoDiaBogota(fecha);
 

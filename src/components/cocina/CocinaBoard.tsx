@@ -36,6 +36,8 @@ export function CocinaBoard() {
 
   useEffect(() => {
     cargar();
+    const interval = setInterval(cargar, 10_000);
+    return () => clearInterval(interval);
   }, [cargar]);
 
   useEffect(() => {
