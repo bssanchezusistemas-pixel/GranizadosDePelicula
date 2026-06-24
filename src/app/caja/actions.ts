@@ -589,8 +589,6 @@ export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
       Array.isArray(pedidoRaw) ? pedidoRaw[0] : pedidoRaw
     ) as PedidoCaja;
 
-    if (pedido.estado === "cerrado") continue;
-
     const item = {
       id: raw.id,
       pedido_id: raw.pedido_id,
