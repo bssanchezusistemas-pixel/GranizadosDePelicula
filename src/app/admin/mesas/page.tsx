@@ -58,12 +58,26 @@ export default function AdminMesasPage() {
               Mesas y bancos
             </h1>
           </div>
-          <Link
-            href="/admin/domicilios"
-            className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white/60 hover:border-white/30"
-          >
-            ← Domicilios
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/domicilios"
+              className="rounded-full border border-neon/50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-neon"
+            >
+              Domicilios
+            </Link>
+            <Link
+              href="/admin/mesas"
+              className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white/60 hover:border-white/30"
+            >
+              Mesas
+            </Link>
+            <Link
+              href="/admin/meseros"
+              className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white/60 hover:border-white/30"
+            >
+              Meseros
+            </Link>
+          </div>
         </div>
 
         {error && (

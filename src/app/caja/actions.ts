@@ -14,8 +14,17 @@ import {
   type Ubicacion,
 } from "@/data/caja";
 import { fechaHoyBogota, rangoDiaBogota } from "@/lib/dates";
-import { getMeseroSession, MESERO_COOKIE } from "@/lib/mesero-session";
+import { getCajaSession, MESERO_COOKIE } from "@/lib/mesero-session";
 import { createServiceClient } from "@/lib/supabase/service";
+
+/** FK explícita: pedidos_caja ↔ ubicaciones tiene dos relaciones (ubicacion_id y pedido_abierto_id). */
+const UBICACION_EMBED =
+  "ubicacion:ubicaciones!pedidos_caja_ubicacion_id_fkey(label, tipo)";
+
+const PEDIDO_CAJA_DETALLE =
+  `*, mesero:meseros(nombre), ${UBICACION_EMBED}, items:pedido_items_caja(*)`;
+
+const PEDIDO_CAJA_RESUMEN = `*, mesero:meseros(nombre), ${UBICACION_EMBED}`;
 
 function revalidateCaja() {
   revalidatePath("/caja");
@@ -25,12 +34,28 @@ function revalidateCaja() {
   revalidatePath("/admin/mesas");
 }
 
+async function requireCajaSession() {
+  const session = await getCajaSession();
+  if (!session) {
+    throw new Error("Debes iniciar sesión.");
+  }
+  return session;
+}
+
 async function requireMesero() {
-  const mesero = await getMeseroSession();
-  if (!mesero) {
+  const session = await getCajaSession();
+  if (!session || session.rol !== "mesero") {
     throw new Error("Debes iniciar sesión como mesero.");
   }
-  return mesero;
+  return session;
+}
+
+async function requireAdmin() {
+  const session = await getCajaSession();
+  if (!session || session.rol !== "admin") {
+    throw new Error("Solo el admin puede hacer esto.");
+  }
+  return session;
 }
 
 export async function loginMeseroAction(nombre: string) {
@@ -50,7 +75,7 @@ export async function loginMeseroAction(nombre: string) {
   const jar = await cookies();
   jar.set(
     MESERO_COOKIE,
-    JSON.stringify({ id: data.id, nombre: data.nombre }),
+    JSON.stringify({ id: data.id, nombre: data.nombre, rol: "mesero" }),
     {
       httpOnly: true,
       sameSite: "lax",
@@ -59,7 +84,33 @@ export async function loginMeseroAction(nombre: string) {
     },
   );
 
-  return { id: data.id, nombre: data.nombre };
+  return { id: data.id, nombre: data.nombre, rol: "mesero" as const };
+}
+
+export async function confirmAdminCajaSessionAction() {
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabaseAuth = await createClient();
+  const {
+    data: { user },
+  } = await supabaseAuth.auth.getUser();
+
+  if (!user) {
+    throw new Error("Inicia sesión con correo y contraseña de admin.");
+  }
+
+  const jar = await cookies();
+  jar.set(
+    MESERO_COOKIE,
+    JSON.stringify({ id: user.id, nombre: "Admin", rol: "admin" }),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 12,
+    },
+  );
+
+  return { id: user.id, nombre: "Admin", rol: "admin" as const };
 }
 
 export async function logoutMeseroAction() {
@@ -124,7 +175,8 @@ function calcularTotalPedido(input: NuevoPedidoInput): number {
 }
 
 export async function confirmarPedidoAction(input: NuevoPedidoInput) {
-  const mesero = await requireMesero();
+  const session = await requireCajaSession();
+  const mesero = session.rol === "mesero" ? session : null;
   const supabase = createServiceClient();
 
   if (input.items.length === 0) {
@@ -197,7 +249,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
         .from("pedidos_caja")
         .insert({
           numero_pedido: numero,
-          mesero_id: mesero.id,
+          mesero_id: mesero?.id ?? null,
           tipo_entrega: "mesa",
           ubicacion_id: input.ubicacionId,
           forma_pago: input.formaPago,
@@ -223,7 +275,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
       .from("pedidos_caja")
       .insert({
         numero_pedido: numero,
-        mesero_id: mesero.id,
+        mesero_id: mesero?.id ?? null,
         tipo_entrega: input.tipoEntrega,
         ubicacion_id: null,
         nombre_recoge:
@@ -268,7 +320,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
 
   const { data: completo } = await supabase
     .from("pedidos_caja")
-    .select("*, mesero:meseros(nombre), ubicacion:ubicaciones(label, tipo)")
+    .select(PEDIDO_CAJA_RESUMEN)
     .eq("id", pedidoId)
     .single();
 
@@ -276,7 +328,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
 }
 
 export async function liberarUbicacionAction(ubicacionId: string) {
-  await requireMesero();
+  await requireCajaSession();
   const supabase = createServiceClient();
 
   const { data: ubicacion, error: errUb } = await supabase
@@ -309,15 +361,14 @@ export async function liberarUbicacionAction(ubicacionId: string) {
 }
 
 export async function getPedidosDelDiaAction(): Promise<PedidoCaja[]> {
+  await requireAdmin();
   const supabase = createServiceClient();
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
 
   const { data, error } = await supabase
     .from("pedidos_caja")
-    .select(
-      "*, mesero:meseros(nombre), ubicacion:ubicaciones(label, tipo), items:pedido_items_caja(*)",
-    )
+    .select(PEDIDO_CAJA_DETALLE)
     .gte("creado_en", inicio)
     .lte("creado_en", fin)
     .order("creado_en", { ascending: true });
@@ -328,22 +379,82 @@ export async function getPedidosDelDiaAction(): Promise<PedidoCaja[]> {
 
 export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
   const supabase = createServiceClient();
-  const fecha = fechaHoyBogota();
-  const { inicio, fin } = rangoDiaBogota(fecha);
 
-  const { data, error } = await supabase
-    .from("pedidos_caja")
+  const { data: rows, error } = await supabase
+    .from("pedido_items_caja")
     .select(
-      "*, mesero:meseros(nombre), ubicacion:ubicaciones(label, tipo), items:pedido_items_caja(*)",
+      `
+      id,
+      pedido_id,
+      producto_id,
+      nombre,
+      cantidad,
+      precio_unitario,
+      categoria_id,
+      sin_ingredientes,
+      notas_extra,
+      estado_cocina,
+      creado_en,
+      pedido:pedidos_caja!inner(
+        id,
+        numero_pedido,
+        mesero_id,
+        tipo_entrega,
+        ubicacion_id,
+        nombre_recoge,
+        direccion,
+        forma_pago,
+        total,
+        estado,
+        paga_con,
+        devuelta,
+        comision_pagada_por,
+        creado_en,
+        cerrado_en,
+        mesero:meseros(nombre),
+        ${UBICACION_EMBED}
+      )
+    `,
     )
-    .gte("creado_en", inicio)
-    .lte("creado_en", fin)
-    .order("creado_en", { ascending: false });
+    .eq("estado_cocina", "pendiente")
+    .order("creado_en", { ascending: true });
 
   if (error) throw new Error(error.message);
 
-  return ((data as PedidoCaja[]) ?? []).filter((p) =>
-    p.items?.some((i) => i.estado_cocina === "pendiente"),
+  const byPedido = new Map<string, PedidoCaja>();
+
+  for (const row of rows ?? []) {
+    const raw = row as Record<string, unknown>;
+    const pedidoRaw = raw.pedido;
+    const pedido = (
+      Array.isArray(pedidoRaw) ? pedidoRaw[0] : pedidoRaw
+    ) as PedidoCaja;
+    const item = {
+      id: raw.id,
+      pedido_id: raw.pedido_id,
+      producto_id: raw.producto_id,
+      nombre: raw.nombre,
+      cantidad: raw.cantidad,
+      precio_unitario: raw.precio_unitario,
+      categoria_id: raw.categoria_id,
+      sin_ingredientes: raw.sin_ingredientes,
+      notas_extra: raw.notas_extra,
+      estado_cocina: raw.estado_cocina,
+      creado_en: raw.creado_en,
+    } as PedidoItemCaja;
+    const existente = byPedido.get(pedido.id);
+
+    if (existente) {
+      existente.items = [...(existente.items ?? []), item];
+      continue;
+    }
+
+    byPedido.set(pedido.id, { ...pedido, items: [item] });
+  }
+
+  return Array.from(byPedido.values()).sort(
+    (a, b) =>
+      new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime(),
   );
 }
 
@@ -364,7 +475,7 @@ export async function getSiguienteNumeroAction(): Promise<number> {
 }
 
 export async function reiniciarDiaCajaAction() {
-  await requireMesero();
+  await requireAdmin();
   const supabase = createServiceClient();
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);

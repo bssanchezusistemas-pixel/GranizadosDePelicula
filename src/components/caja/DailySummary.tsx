@@ -16,6 +16,7 @@ const TIPOS: TipoEntrega[] = ["mesa", "recoger", "domicilio"];
 
 export function DailySummary({ pedidos }: DailySummaryProps) {
   const cerrados = pedidos.filter((p) => p.estado === "cerrado");
+  const abiertos = pedidos.filter((p) => p.estado === "abierto");
   const totalVendido = cerrados.reduce((s, p) => s + Number(p.total), 0);
   const totalEfectivo = cerrados
     .filter((p) => p.forma_pago === "efectivo")
@@ -30,7 +31,7 @@ export function DailySummary({ pedidos }: DailySummaryProps) {
         <MetricCard
           label="Total vendido hoy"
           value={formatCOP(totalVendido)}
-          sub={`${cerrados.length} pedidos cerrados`}
+          sub={`${cerrados.length} cerrados · ${abiertos.length} abiertos en mesa`}
           subVariant="ok"
         />
         <MetricCard
@@ -47,14 +48,16 @@ export function DailySummary({ pedidos }: DailySummaryProps) {
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
         {TIPOS.map((tipo) => {
-          const delTipo = cerrados.filter((p) => p.tipo_entrega === tipo);
-          const suma = delTipo.reduce((s, p) => s + Number(p.total), 0);
+          const delTipo = pedidos.filter((p) => p.tipo_entrega === tipo);
+          const sumaCerrados = delTipo
+            .filter((p) => p.estado === "cerrado")
+            .reduce((s, p) => s + Number(p.total), 0);
           return (
             <MetricCard
               key={tipo}
               label={TIPO_ENTREGA_LABEL[tipo]}
               value={String(delTipo.length)}
-              sub={formatCOP(suma)}
+              sub={formatCOP(sumaCerrados)}
             />
           );
         })}

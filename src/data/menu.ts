@@ -1,4 +1,8 @@
 export type MenuCategoryId =
+  | "cholaos"
+  | "raspados"
+  | "boom"
+  | "granizados"
   | "hot-dog"
   | "patacones"
   | "picadas"
@@ -7,7 +11,6 @@ export type MenuCategoryId =
   | "tacos-birria"
   | "bebidas"
   | "limonadas"
-  | "sodas"
   | "adiciones"
   | "salchipapas"
   | "hamburguesas";
@@ -40,7 +43,7 @@ export const BUSINESS = {
   tagline: "Sabor de cine en cada bocado",
   headline: "Tu antojo en pantalla grande",
   subheadline:
-    "Hot dogs, salchipapas, hamburguesas, asados y más — hechos con cariño familiar en Zarzal.",
+    "Granizados, cholaos, hot dogs, salchipapas, hamburguesas y más — hechos con cariño familiar en Zarzal.",
   city: "Zarzal, Valle del Cauca",
   address: "Carrera 10 # 13-56, frente a Tiendas Ara",
   phones: ["573107790328", "573177729038"],
@@ -52,6 +55,171 @@ export const BUSINESS = {
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
+  {
+    id: "cholaos",
+    label: "Cholaos",
+    tagline: "Fruta, hielo y mucho sabor",
+    accentColor: "#F28131",
+    items: [
+      {
+        id: "chol-mega",
+        name: "Mega Cholao",
+        description: "Cholao grande con fruta, leche condensada y toppings.",
+        price: 17000,
+        badge: "Estrella",
+      },
+      {
+        id: "chol-grande",
+        name: "Cholao Grande",
+        description: "Porción grande de cholao tradicional.",
+        price: 11000,
+      },
+      {
+        id: "chol-pequeno",
+        name: "Cholao Pequeño",
+        description: "Porción pequeña de cholao.",
+        price: 8000,
+      },
+      {
+        id: "chol-tradicional",
+        name: "Cholao Tradicional",
+        description: "Cholao clásico de la casa.",
+        price: 8000,
+      },
+    ],
+  },
+  {
+    id: "raspados",
+    label: "Raspados",
+    tagline: "Hielo raspado bien frío",
+    accentColor: "#F28131",
+    items: [
+      {
+        id: "rasp-con-helado",
+        name: "Raspao con Helado",
+        description: "Raspado con helado.",
+        sizes: [
+          { label: "Pequeño", price: 7000 },
+          { label: "Grande", price: 9000 },
+        ],
+      },
+      {
+        id: "rasp-sencillo",
+        name: "Raspao Sencillo",
+        description: "Raspado sencillo.",
+        sizes: [
+          { label: "Pequeño", price: 4000 },
+          { label: "Grande", price: 6000 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "boom",
+    label: "Boom",
+    tagline: "Granizados especiales",
+    accentColor: "#F28131",
+    items: [
+      {
+        id: "boom-oreo-milo",
+        name: "Boom de Oreo o Milo",
+        description: "Granizado boom con Oreo o Milo.",
+        price: 17000,
+      },
+      {
+        id: "boom-caramelo",
+        name: "Boom de Caramelo",
+        description: "Granizado boom sabor caramelo.",
+        price: 17000,
+      },
+      {
+        id: "boom-chocolate",
+        name: "Boom de Chocolate",
+        description: "Granizado boom sabor chocolate.",
+        price: 17000,
+      },
+    ],
+  },
+  {
+    id: "granizados",
+    label: "Granizados",
+    tagline: "Sabor de película en cada vaso",
+    accentColor: "#F28131",
+    items: [
+      {
+        id: "gran-oreo",
+        name: "Granizado de Oreo",
+        description: "Granizado sabor Oreo.",
+        price: 11000,
+      },
+      {
+        id: "gran-milo",
+        name: "Granizado de Milo",
+        description: "Granizado sabor Milo.",
+        price: 11000,
+      },
+      {
+        id: "gran-cafe",
+        name: "Granizado de Café",
+        description: "Granizado sabor café.",
+        price: 11000,
+      },
+      {
+        id: "gran-con-helado",
+        name: "Granizado con Helado",
+        description: "Granizado con helado.",
+        price: 14000,
+      },
+      {
+        id: "gran-mocca-caramelo",
+        name: "Mocca Caramelo",
+        description: "Granizado mocca caramelo.",
+        price: 11000,
+      },
+      {
+        id: "gran-frutos-rojos",
+        name: "Granizado Frutos Rojos",
+        description: "Granizado sabor frutos rojos.",
+        price: 11000,
+      },
+      {
+        id: "gran-sandia",
+        name: "Granizado Sandía",
+        description: "Granizado sabor sandía.",
+        price: 11000,
+      },
+      {
+        id: "gran-masmelo",
+        name: "Granizado Masmelo",
+        description: "Granizado sabor masmelo.",
+        price: 11000,
+      },
+      {
+        id: "gran-maracuya",
+        name: "Granizado Maracuyá",
+        description: "Granizado sabor maracuyá.",
+        price: 11000,
+      },
+      {
+        id: "gran-mango-biche",
+        name: "Granizado Mango Biche",
+        description: "Granizado sabor mango biche.",
+        price: 11000,
+      },
+      {
+        id: "gran-maracubiche",
+        name: "Maracubiche",
+        description: "Granizado maracuyá y mango biche.",
+        price: 11000,
+      },
+      {
+        id: "gran-frutos-amarillos",
+        name: "Granizado Frutos Amarillos",
+        description: "Granizado sabor frutos amarillos.",
+        price: 11000,
+      },
+    ],
+  },
   {
     id: "hot-dog",
     label: "Hot Dog",
@@ -240,30 +408,30 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   },
   {
     id: "limonadas",
-    label: "Limonadas",
-    tagline: "Todas a $10.000",
+    label: "Limonadas y Jugos",
+    tagline: "Naturales y saborizadas",
     items: [
+      {
+        id: "lim-natural",
+        name: "Limonada Natural",
+        description: "Limonada natural.",
+        price: 5000,
+      },
+      {
+        id: "jug-natural",
+        name: "Jugos Naturales",
+        description: "Jugo de fruta natural.",
+        sizes: [
+          { label: "Pequeño", price: 5000 },
+          { label: "Grande", price: 6000 },
+        ],
+      },
       { id: "lim-cereza", name: "Limonada Cereza", description: "Limonada sabor cereza.", price: 10000 },
       { id: "lim-coco", name: "Limonada Coco", description: "Limonada sabor coco.", price: 10000 },
       { id: "lim-hierba", name: "Limonada Hierba Buena", description: "Limonada con hierba buena.", price: 10000 },
       { id: "lim-coco-cereza", name: "Limonada Coco Cereza", description: "Limonada coco y cereza.", price: 10000 },
       { id: "lim-coco-maracuya", name: "Limonada Coco Maracuyá", description: "Limonada coco y maracuyá.", price: 10000 },
       { id: "lim-pina", name: "Limonada Piña Colada", description: "Limonada piña colada.", price: 10000 },
-    ],
-  },
-  {
-    id: "sodas",
-    label: "Sodas Saborizadas",
-    tagline: "Granizados fríos — $13.000",
-    items: [
-      { id: "soda-mango", name: "Mango Biche", description: "Soda saborizada mango biche.", price: 13000 },
-      { id: "soda-cereza", name: "Cereza", description: "Soda saborizada cereza.", price: 13000 },
-      { id: "soda-maracuya", name: "Maracuyá", description: "Soda saborizada maracuyá.", price: 13000 },
-      { id: "soda-blueberry", name: "Blueberry", description: "Soda saborizada blueberry.", price: 13000 },
-      { id: "soda-frutos", name: "Frutos Amarillos", description: "Soda saborizada frutos amarillos.", price: 13000 },
-      { id: "soda-fresa", name: "Fresa", description: "Soda saborizada fresa.", price: 13000 },
-      { id: "soda-sandia", name: "Sandía", description: "Soda saborizada sandía.", price: 13000 },
-      { id: "soda-tamarindo", name: "Tamarindo", description: "Soda saborizada tamarindo.", price: 13000 },
     ],
   },
   {

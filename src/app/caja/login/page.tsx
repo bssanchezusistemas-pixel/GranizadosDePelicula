@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MeseroLoginForm } from "./MeseroLoginForm";
+import { CajaLoginForm } from "./CajaLoginForm";
 
 export default function CajaLoginPage() {
   return (
@@ -8,12 +8,12 @@ export default function CajaLoginPage() {
         <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-neon">
           Granizados de Película
         </p>
-        <h1 className="font-black text-2xl text-white">CAJA — MESEROS</h1>
+        <h1 className="font-black text-2xl text-white">CAJA</h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Elige tu nombre para tomar pedidos.
+          Meseros o admin — elige cómo entras.
         </p>
         <div className="mt-8">
-          <MeseroLoginForm />
+          <CajaLoginForm />
         </div>
         <Link
           href="/"

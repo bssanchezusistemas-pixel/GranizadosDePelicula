@@ -33,18 +33,19 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
-  const isLogin = request.nextUrl.pathname === "/admin/login";
+  const isLegacyLogin = request.nextUrl.pathname === "/admin/login";
 
-  if (isAdminRoute && !isLogin && !user) {
+  if (isLegacyLogin) {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/admin/login";
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    loginUrl.pathname = "/caja/login";
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLogin && user) {
-    const next = request.nextUrl.searchParams.get("next") || "/admin/domicilios";
-    return NextResponse.redirect(new URL(next, request.url));
+  if (isAdminRoute && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/caja/login";
+    loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return supabaseResponse;

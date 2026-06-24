@@ -104,7 +104,7 @@ export default function DomiciliosPage() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/admin/login");
+    router.push("/caja/login");
     router.refresh();
   }
 
@@ -202,6 +202,18 @@ export default function DomiciliosPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/mesas"
+              className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-500"
+            >
+              Mesas
+            </Link>
+            <Link
+              href="/admin/meseros"
+              className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-500"
+            >
+              Meseros
+            </Link>
             <Link
               href="/"
               className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-300 hover:border-zinc-500"

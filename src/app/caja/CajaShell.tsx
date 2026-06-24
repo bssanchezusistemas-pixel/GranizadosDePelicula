@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { BUSINESS } from "@/data/menu";
-import type { MeseroSession } from "@/lib/mesero-session";
+import type { CajaSession } from "@/lib/caja-session";
+import { isAdminSession } from "@/lib/caja-session";
 import { logoutMeseroAction } from "@/app/caja/actions";
 
 interface CajaShellProps {
-  mesero: MeseroSession | null;
+  session: CajaSession | null;
   children: React.ReactNode;
 }
 
-export function CajaShell({ mesero, children }: CajaShellProps) {
+export function CajaShell({ session, children }: CajaShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const esAdmin = isAdminSession(session);
 
   if (pathname === "/caja/login") {
     return <>{children}</>;
@@ -28,6 +31,10 @@ export function CajaShell({ mesero, children }: CajaShellProps) {
   const linkInactivo = "border-white/10 text-white/60 hover:border-white/30";
 
   async function handleLogout() {
+    if (esAdmin) {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    }
     await logoutMeseroAction();
     router.push("/caja/login");
     router.refresh();
@@ -56,14 +63,16 @@ export function CajaShell({ mesero, children }: CajaShellProps) {
             >
               PEDIDOS
             </Link>
-            <Link
-              href="/caja/registro"
-              className={`${linkBase} border ${
-                esRegistro ? linkActivo : linkInactivo
-              }`}
-            >
-              REGISTRO
-            </Link>
+            {esAdmin && (
+              <Link
+                href="/caja/registro"
+                className={`${linkBase} border ${
+                  esRegistro ? linkActivo : linkInactivo
+                }`}
+              >
+                REGISTRO
+              </Link>
+            )}
             <Link
               href="/caja/mesas"
               className={`${linkBase} border ${
@@ -72,6 +81,22 @@ export function CajaShell({ mesero, children }: CajaShellProps) {
             >
               MESAS
             </Link>
+            {esAdmin && (
+              <Link
+                href="/admin/domicilios"
+                className={`${linkBase} border ${linkInactivo}`}
+              >
+                DOMICILIOS
+              </Link>
+            )}
+            {esAdmin && (
+              <Link
+                href="/admin/meseros"
+                className={`${linkBase} border ${linkInactivo}`}
+              >
+                MESEROS
+              </Link>
+            )}
             <Link
               href="/cocina"
               className={`${linkBase} border ${linkInactivo}`}
@@ -79,9 +104,9 @@ export function CajaShell({ mesero, children }: CajaShellProps) {
             >
               COCINA
             </Link>
-            {mesero && (
+            {session && (
               <span className="hidden rounded-full border border-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-white/50 sm:inline">
-                {mesero.nombre}
+                {session.nombre}
               </span>
             )}
             <button

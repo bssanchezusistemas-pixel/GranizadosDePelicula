@@ -10,10 +10,9 @@ export function fechaHoyBogota(): string {
 }
 
 export function rangoDiaBogota(fecha: string) {
-  return {
-    inicio: `${fecha}T00:00:00-05:00`,
-    fin: `${fecha}T23:59:59.999-05:00`,
-  };
+  const inicio = new Date(`${fecha}T00:00:00-05:00`).toISOString();
+  const fin = new Date(`${fecha}T23:59:59.999-05:00`).toISOString();
+  return { inicio, fin };
 }
 
 export function formatHoraBogota(iso: string) {

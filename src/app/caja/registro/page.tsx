@@ -13,12 +13,17 @@ export default function RegistroPage() {
   const [pedidos, setPedidos] = useState<PedidoCaja[]>([]);
   const [loading, setLoading] = useState(true);
   const [reiniciando, setReiniciando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getPedidosDelDiaAction();
       setPedidos(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar el registro.");
+      setPedidos([]);
     } finally {
       setLoading(false);
     }
@@ -71,6 +76,11 @@ export default function RegistroPage() {
       </div>
 
       <div className="space-y-8">
+        {error && (
+          <div className="rounded-xl border border-red-700/40 bg-red-900/15 px-5 py-3 text-sm font-bold text-red-300">
+            {error}
+          </div>
+        )}
         <DailySummary pedidos={pedidos} />
         <SalesTable pedidos={pedidos} />
       </div>

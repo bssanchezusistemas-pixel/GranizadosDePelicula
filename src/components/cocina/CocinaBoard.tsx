@@ -19,11 +19,16 @@ export function CocinaBoard() {
   const [pedidos, setPedidos] = useState<PedidoCaja[]>([]);
   const [loading, setLoading] = useState(true);
   const [marcandoId, setMarcandoId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     try {
       const data = await getPedidosCocinaAction();
       setPedidos(data);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudieron cargar los pedidos.");
+      setPedidos([]);
     } finally {
       setLoading(false);
     }
@@ -36,22 +41,30 @@ export function CocinaBoard() {
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
+    let debounce: ReturnType<typeof setTimeout> | null = null;
     const supabase = createClient();
     const channel = supabase
       .channel("cocina-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "pedidos_caja" },
-        () => cargar(),
+        () => {
+          if (debounce) clearTimeout(debounce);
+          debounce = setTimeout(() => cargar(), 400);
+        },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "pedido_items_caja" },
-        () => cargar(),
+        () => {
+          if (debounce) clearTimeout(debounce);
+          debounce = setTimeout(() => cargar(), 400);
+        },
       )
       .subscribe();
 
     return () => {
+      if (debounce) clearTimeout(debounce);
       supabase.removeChannel(channel);
     };
   }, [cargar]);
@@ -60,6 +73,16 @@ export function CocinaBoard() {
     setMarcandoId(item.id);
     try {
       await marcarItemListoAction(item.id);
+      setPedidos((prev) =>
+        prev
+          .map((p) => ({
+            ...p,
+            items: (p.items ?? []).filter((i) => i.id !== item.id),
+          }))
+          .filter((p) => (p.items ?? []).length > 0),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo marcar como listo.");
       await cargar();
     } finally {
       setMarcandoId(null);
@@ -71,6 +94,14 @@ export function CocinaBoard() {
       <p className="py-20 text-center text-lg text-white/50">
         Cargando pedidos...
       </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-700/40 bg-red-900/15 px-5 py-4 text-sm font-bold text-red-300">
+        {error}
+      </div>
     );
   }
 

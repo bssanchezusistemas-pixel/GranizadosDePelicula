@@ -1,21 +1,20 @@
 import { cookies } from "next/headers";
+import {
+  MESERO_COOKIE,
+  type CajaSession,
+  parseCajaSessionCookie,
+} from "@/lib/caja-session";
 
-export const MESERO_COOKIE = "mesero_session";
+export { MESERO_COOKIE, parseCajaSessionCookie, isAdminSession } from "@/lib/caja-session";
+export type { CajaSession, CajaRol } from "@/lib/caja-session";
 
-export interface MeseroSession {
-  id: string;
-  nombre: string;
+export async function getCajaSession(): Promise<CajaSession | null> {
+  const jar = await cookies();
+  return parseCajaSessionCookie(jar.get(MESERO_COOKIE)?.value);
 }
 
-export async function getMeseroSession(): Promise<MeseroSession | null> {
-  const jar = await cookies();
-  const raw = jar.get(MESERO_COOKIE)?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as MeseroSession;
-    if (parsed?.id && parsed?.nombre) return parsed;
-  } catch {
-    return null;
-  }
-  return null;
+export async function getMeseroSession(): Promise<CajaSession | null> {
+  const session = await getCajaSession();
+  if (!session || session.rol !== "mesero") return null;
+  return session;
 }

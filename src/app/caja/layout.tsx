@@ -1,4 +1,4 @@
-import { getMeseroSession } from "@/lib/mesero-session";
+import { getCajaSession } from "@/lib/mesero-session";
 import { CajaShell } from "./CajaShell";
 
 export default async function CajaLayout({
@@ -6,6 +6,6 @@ export default async function CajaLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const mesero = await getMeseroSession();
-  return <CajaShell mesero={mesero}>{children}</CajaShell>;
+  const session = await getCajaSession();
+  return <CajaShell session={session}>{children}</CajaShell>;
 }

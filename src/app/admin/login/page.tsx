@@ -1,16 +1,5 @@
-import { Suspense } from "react";
-import { AdminLoginForm } from "./AdminLoginForm";
+import { redirect } from "next/navigation";
 
 export default function AdminLoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-cinema-black text-zinc-500">
-          Cargando...
-        </div>
-      }
-    >
-      <AdminLoginForm />
-    </Suspense>
-  );
+  redirect("/caja/login");
 }
