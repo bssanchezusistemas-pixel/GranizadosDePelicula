@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { calcularDevuelta } from "@/data/domicilios";
+import {
+  calcularDebeEntregar,
+  calcularDevuelta,
+  calcularVentasEfectivo,
+} from "@/data/domicilios";
 import {
   COMISION_DOMICILIO,
   PEDIDO_INICIAL,
@@ -12,6 +16,9 @@ import {
   type PedidoCaja,
   type PedidoItemCaja,
   type ResumenSemanalCaja,
+  type CierreDiarioCompleto,
+  type ResumenRepartidorDia,
+  type ProductoTopDia,
   type Ubicacion,
   resumirItems,
 } from "@/data/caja";
@@ -608,6 +615,163 @@ export async function getResumenSemanalCajaAction(
   return { lunes, domingo, dias, totales };
 }
 
+export async function getCierreDiarioCompletoAction(
+  fecha: string,
+): Promise<CierreDiarioCompleto> {
+  await requireAdmin();
+  const supabase = createServiceClient();
+  const { inicio, fin } = rangoDiaBogota(fecha);
+
+  const [
+    { data: pedidosCaja, error: errCaja },
+    { data: pedidosDom, error: errDom },
+    { data: domiciliarios, error: errDomList },
+    { data: turnos, error: errTurnos },
+    { data: pedidosIds, error: errIds },
+  ] = await Promise.all([
+    supabase
+      .from("pedidos_caja")
+      .select("total, forma_pago, tipo_entrega, estado")
+      .gte("creado_en", inicio)
+      .lte("creado_en", fin),
+    supabase
+      .from("pedidos_domicilio")
+      .select("domiciliario_id, valor_pedido, forma_pago, paga_con, devuelta")
+      .gte("creado_en", inicio)
+      .lte("creado_en", fin),
+    supabase
+      .from("domiciliarios")
+      .select("id, nombre")
+      .eq("activo", true)
+      .order("nombre", { ascending: true }),
+    supabase.from("turnos").select("*").eq("fecha", fecha),
+    supabase
+      .from("pedidos_caja")
+      .select("id")
+      .gte("creado_en", inicio)
+      .lte("creado_en", fin),
+  ]);
+
+  if (errCaja) throw new Error(errCaja.message);
+  if (errDom) throw new Error(errDom.message);
+  if (errDomList) throw new Error(errDomList.message);
+  if (errTurnos) throw new Error(errTurnos.message);
+  if (errIds) throw new Error(errIds.message);
+
+  const ids = (pedidosIds ?? []).map((p) => p.id as string);
+  let items: { nombre: string; cantidad: number; precio_unitario: number }[] =
+    [];
+
+  if (ids.length > 0) {
+    const { data: itemsData, error: errItems } = await supabase
+      .from("pedido_items_caja")
+      .select("nombre, cantidad, precio_unitario")
+      .in("pedido_id", ids);
+
+    if (errItems) throw new Error(errItems.message);
+    items = itemsData ?? [];
+  }
+
+  const pedidos = pedidosCaja ?? [];
+  const cerrados = pedidos.filter((p) => p.estado === "cerrado");
+  const totalCaja = cerrados.reduce((s, p) => s + Number(p.total), 0);
+  const efectivoCaja = cerrados
+    .filter((p) => p.forma_pago === "efectivo")
+    .reduce((s, p) => s + Number(p.total), 0);
+  const transferenciaCaja = cerrados
+    .filter((p) => p.forma_pago === "transferencia")
+    .reduce((s, p) => s + Number(p.total), 0);
+
+  const domRows = pedidosDom ?? [];
+  const totalDom = domRows.reduce((s, p) => s + Number(p.valor_pedido), 0);
+  const efectivoDom = domRows
+    .filter((p) => p.forma_pago === "efectivo")
+    .reduce((s, p) => s + Number(p.valor_pedido), 0);
+  const transferenciaDom = domRows
+    .filter((p) => p.forma_pago === "transferencia")
+    .reduce((s, p) => s + Number(p.valor_pedido), 0);
+
+  const repartidores: ResumenRepartidorDia[] = (domiciliarios ?? []).map(
+    (dom) => {
+      const pedidosDelDom = domRows.filter((p) => p.domiciliario_id === dom.id);
+      const turno = turnos?.find((t) => t.domiciliario_id === dom.id);
+      const baseEfectivo = Number(turno?.base_efectivo ?? 0);
+      const ventasEfectivo = calcularVentasEfectivo(pedidosDelDom);
+      const debeEntregar = turno
+        ? calcularDebeEntregar(baseEfectivo, pedidosDelDom)
+        : 0;
+      const efectivoEntregado = Number(turno?.efectivo_entregado ?? 0);
+      const totalVentas = pedidosDelDom.reduce(
+        (s, p) => s + Number(p.valor_pedido),
+        0,
+      );
+
+      return {
+        id: dom.id,
+        nombre: dom.nombre,
+        pedidos: pedidosDelDom.length,
+        totalVentas,
+        ventasEfectivo,
+        debeEntregar,
+        efectivoEntregado,
+        diferencia: debeEntregar - efectivoEntregado,
+        cuadrado: turno != null && efectivoEntregado >= debeEntregar,
+      };
+    },
+  );
+
+  const debeEntregarTotal = repartidores.reduce((s, r) => s + r.debeEntregar, 0);
+  const efectivoEntregadoTotal = repartidores.reduce(
+    (s, r) => s + r.efectivoEntregado,
+    0,
+  );
+
+  const productoMap = new Map<string, { cantidad: number; total: number }>();
+  for (const row of items) {
+    const nombre = row.nombre;
+    const cantidad = Number(row.cantidad);
+    const total = cantidad * Number(row.precio_unitario);
+    const prev = productoMap.get(nombre) ?? { cantidad: 0, total: 0 };
+    productoMap.set(nombre, {
+      cantidad: prev.cantidad + cantidad,
+      total: prev.total + total,
+    });
+  }
+
+  const topProductos: ProductoTopDia[] = Array.from(productoMap.entries())
+    .map(([nombre, stats]) => ({ nombre, ...stats }))
+    .sort((a, b) => b.cantidad - a.cantidad)
+    .slice(0, 10);
+
+  return {
+    fecha,
+    caja: {
+      pedidos: pedidos.length,
+      cerrados: cerrados.length,
+      total: totalCaja,
+      efectivo: efectivoCaja,
+      transferencia: transferenciaCaja,
+      porTipo: {
+        mesa: pedidos.filter((p) => p.tipo_entrega === "mesa").length,
+        recoger: pedidos.filter((p) => p.tipo_entrega === "recoger").length,
+        domicilio: pedidos.filter((p) => p.tipo_entrega === "domicilio").length,
+      },
+    },
+    domicilios: {
+      pedidos: domRows.length,
+      total: totalDom,
+      efectivo: efectivoDom,
+      transferencia: transferenciaDom,
+      debeEntregarTotal,
+      efectivoEntregadoTotal,
+      diferenciaTotal: debeEntregarTotal - efectivoEntregadoTotal,
+    },
+    repartidores: repartidores.filter((r) => r.pedidos > 0 || r.debeEntregar > 0),
+    topProductos,
+    granTotal: totalCaja + totalDom,
+  };
+}
+
 export async function getPedidosCocinaAction(): Promise<PedidoCaja[]> {
   await requireCajaSession();
   const supabase = createServiceClient();
@@ -715,28 +879,17 @@ export async function getSiguienteNumeroAction(): Promise<number> {
 }
 
 export async function reiniciarDiaCajaAction() {
+  return cerrarOperacionCompletaAction();
+}
+
+export async function cerrarOperacionCompletaAction() {
   await requireAdmin();
   const supabase = createServiceClient();
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
   const ahora = new Date().toISOString();
 
-  const { data: pedidosHoy, error: errPedidos } = await supabase
-    .from("pedidos_caja")
-    .select("id, total, forma_pago, tipo_entrega, estado")
-    .gte("creado_en", inicio)
-    .lte("creado_en", fin);
-
-  if (errPedidos) throw new Error(errPedidos.message);
-
-  const pedidos = pedidosHoy ?? [];
-  const totalVendido = pedidos.reduce((s, p) => s + Number(p.total), 0);
-  const totalEfectivo = pedidos
-    .filter((p) => p.forma_pago === "efectivo")
-    .reduce((s, p) => s + Number(p.total), 0);
-  const totalTransferencia = pedidos
-    .filter((p) => p.forma_pago === "transferencia")
-    .reduce((s, p) => s + Number(p.total), 0);
+  const cierre = await getCierreDiarioCompletoAction(fecha);
 
   const { error: errCerrar } = await supabase
     .from("pedidos_caja")
@@ -764,32 +917,42 @@ export async function reiniciarDiaCajaAction() {
 
   if (errMesas) throw new Error(errMesas.message);
 
+  const { error: errTurnos } = await supabase
+    .from("turnos")
+    .update({
+      efectivo_entregado: 0,
+      cuadrado: false,
+      hora_fin: null,
+    })
+    .eq("fecha", fecha);
+
+  if (errTurnos) throw new Error(errTurnos.message);
+
   const { error: errCierre } = await supabase.from("cierres_diarios").insert({
     fecha,
-    tipo: "caja",
-    pedidos_caja_count: pedidos.length,
-    pedidos_domicilio_count: 0,
+    tipo: "unificado",
+    pedidos_caja_count: cierre.caja.pedidos,
+    pedidos_domicilio_count: cierre.domicilios.pedidos,
     totales: {
-      total_vendido: totalVendido,
-      total_efectivo: totalEfectivo,
-      total_transferencia: totalTransferencia,
-      por_tipo: {
-        mesa: pedidos.filter((p) => p.tipo_entrega === "mesa").length,
-        recoger: pedidos.filter((p) => p.tipo_entrega === "recoger").length,
-        domicilio: pedidos.filter((p) => p.tipo_entrega === "domicilio").length,
-      },
+      gran_total: cierre.granTotal,
+      caja: cierre.caja,
+      domicilios: cierre.domicilios,
+      repartidores: cierre.repartidores,
+      top_productos: cierre.topProductos,
     },
     cerrado_en: ahora,
   });
 
   if (
     errCierre &&
-    !errCierre.message.includes("Could not find the table")
+    !errCierre.message.includes("Could not find the table") &&
+    !errCierre.message.includes("cierres_diarios_tipo_check")
   ) {
     throw new Error(errCierre.message);
   }
 
   revalidateCaja();
+  revalidatePath("/caja/domicilios");
 }
 
 /** Admin: misma acción de liberar mesa */

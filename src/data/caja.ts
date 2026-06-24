@@ -129,6 +129,48 @@ export interface ResumenSemanalCaja {
   };
 }
 
+export interface ResumenRepartidorDia {
+  id: string;
+  nombre: string;
+  pedidos: number;
+  totalVentas: number;
+  ventasEfectivo: number;
+  debeEntregar: number;
+  efectivoEntregado: number;
+  diferencia: number;
+  cuadrado: boolean;
+}
+
+export interface ProductoTopDia {
+  nombre: string;
+  cantidad: number;
+  total: number;
+}
+
+export interface CierreDiarioCompleto {
+  fecha: string;
+  caja: {
+    pedidos: number;
+    cerrados: number;
+    total: number;
+    efectivo: number;
+    transferencia: number;
+    porTipo: { mesa: number; recoger: number; domicilio: number };
+  };
+  domicilios: {
+    pedidos: number;
+    total: number;
+    efectivo: number;
+    transferencia: number;
+    debeEntregarTotal: number;
+    efectivoEntregadoTotal: number;
+    diferenciaTotal: number;
+  };
+  repartidores: ResumenRepartidorDia[];
+  topProductos: ProductoTopDia[];
+  granTotal: number;
+}
+
 export function resumirItems(
   items: Pick<ItemPedidoCarrito, "nombre" | "cantidad">[],
   max = 3,

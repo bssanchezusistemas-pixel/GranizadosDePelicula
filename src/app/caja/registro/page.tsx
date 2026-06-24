@@ -2,15 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  getCierreDiarioCompletoAction,
   getPedidosDelDiaAction,
   getPedidosPorFechaAction,
   getResumenSemanalCajaAction,
-  reiniciarDiaCajaAction,
+  cerrarOperacionCompletaAction,
 } from "@/app/caja/actions";
 import { DailySummary } from "@/components/caja/DailySummary";
 import { SalesTable } from "@/components/caja/SalesTable";
+import { TopProductsCard } from "@/components/caja/TopProductsCard";
+import { UnifiedDailySummary } from "@/components/caja/UnifiedDailySummary";
 import { WeeklySummary } from "@/components/caja/WeeklySummary";
-import type { PedidoCaja, ResumenSemanalCaja } from "@/data/caja";
+import type {
+  CierreDiarioCompleto,
+  PedidoCaja,
+  ResumenSemanalCaja,
+} from "@/data/caja";
+import {
+  buildCsvDiario,
+  buildCsvSemanal,
+  downloadCsv,
+} from "@/lib/export-registro-csv";
 import {
   fechaHoyBogota,
   formatFechaCorta,
@@ -30,11 +42,12 @@ export default function RegistroPage() {
   const [vista, setVista] = useState<VistaRegistro>("hoy");
   const [fechaElegida, setFechaElegida] = useState(hoy);
   const [pedidos, setPedidos] = useState<PedidoCaja[]>([]);
+  const [cierre, setCierre] = useState<CierreDiarioCompleto | null>(null);
   const [resumenSemana, setResumenSemana] = useState<ResumenSemanalCaja | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
-  const [reiniciando, setReiniciando] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -45,18 +58,23 @@ export default function RegistroPage() {
         const semana = await getResumenSemanalCajaAction(hoy);
         setResumenSemana(semana);
         setPedidos([]);
+        setCierre(null);
       } else {
         const fecha = vista === "hoy" ? hoy : fechaElegida;
-        const data =
+        const [data, cierreDia] = await Promise.all([
           vista === "hoy"
-            ? await getPedidosDelDiaAction()
-            : await getPedidosPorFechaAction(fecha);
+            ? getPedidosDelDiaAction()
+            : getPedidosPorFechaAction(fecha),
+          getCierreDiarioCompletoAction(fecha),
+        ]);
         setPedidos(data);
+        setCierre(cierreDia);
         setResumenSemana(null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar el registro.");
       setPedidos([]);
+      setCierre(null);
       setResumenSemana(null);
     } finally {
       setLoading(false);
@@ -72,20 +90,33 @@ export default function RegistroPage() {
     setVista("fecha");
   }
 
-  async function handleReiniciar() {
+  async function handleCerrarOperacion() {
     if (
       !confirm(
-        "¿Cerrar operación del día? Se liberarán mesas y cocina. El registro de ventas de hoy se conserva.",
+        "¿Cerrar operación del día? Se liberarán mesas y cocina, se reseteará el cuadre de repartidores. El registro de ventas se conserva.",
       )
     ) {
       return;
     }
-    setReiniciando(true);
+    setCerrando(true);
     try {
-      await reiniciarDiaCajaAction();
+      await cerrarOperacionCompletaAction();
       await cargar();
     } finally {
-      setReiniciando(false);
+      setCerrando(false);
+    }
+  }
+
+  function handleExportarCsv() {
+    if (vista === "semana" && resumenSemana) {
+      const csv = buildCsvSemanal(resumenSemana);
+      downloadCsv(`registro-semana-${resumenSemana.lunes}.csv`, csv);
+      return;
+    }
+    if (cierre) {
+      const fecha = vista === "hoy" ? hoy : fechaElegida;
+      const csv = buildCsvDiario(cierre, pedidos);
+      downloadCsv(`registro-${fecha}.csv`, csv);
     }
   }
 
@@ -101,7 +132,14 @@ export default function RegistroPage() {
       ? formatRangoFechas(resumenSemana.lunes, resumenSemana.domingo)
       : loading
         ? "Cargando..."
-        : `${pedidos.length} pedidos registrados`;
+        : cierre
+          ? `${cierre.caja.pedidos} pedidos POS · ${cierre.domicilios.pedidos} domicilios`
+          : `${pedidos.length} pedidos registrados`;
+
+  const puedeExportar =
+    !loading &&
+    ((vista === "semana" && resumenSemana) ||
+      (vista !== "semana" && cierre));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
@@ -116,16 +154,27 @@ export default function RegistroPage() {
           <p className="mt-1.5 text-sm text-white/40">{subtitulo}</p>
         </div>
 
-        {vista === "hoy" && (
-          <button
-            type="button"
-            onClick={handleReiniciar}
-            disabled={reiniciando}
-            className="rounded-full border border-amber-700/50 px-5 py-2 text-xs font-bold uppercase tracking-wide text-amber-300 transition hover:border-amber-500 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-          >
-            {reiniciando ? "Cerrando..." : "Cerrar operación"}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {puedeExportar && (
+            <button
+              type="button"
+              onClick={handleExportarCsv}
+              className="rounded-full border border-white/15 px-5 py-2 text-xs font-bold uppercase tracking-wide text-white/70 transition hover:border-neon/50 hover:text-white"
+            >
+              Descargar CSV
+            </button>
+          )}
+          {vista === "hoy" && (
+            <button
+              type="button"
+              onClick={handleCerrarOperacion}
+              disabled={cerrando}
+              className="rounded-full border border-amber-700/50 px-5 py-2 text-xs font-bold uppercase tracking-wide text-amber-300 transition hover:border-amber-500 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+            >
+              {cerrando ? "Cerrando..." : "Cerrar operación"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -177,14 +226,16 @@ export default function RegistroPage() {
             resumen={resumenSemana}
             onSeleccionarDia={seleccionarDiaDesdeSemana}
           />
-        ) : (
+        ) : cierre ? (
           <>
+            <UnifiedDailySummary cierre={cierre} />
             <DailySummary
               pedidos={pedidos}
               tituloTotal={
-                vista === "hoy" ? "Total vendido hoy" : "Total del día"
+                vista === "hoy" ? "Total vendido hoy (POS)" : "Total POS del día"
               }
             />
+            <TopProductsCard productos={cierre.topProductos} />
             <SalesTable
               pedidos={pedidos}
               titulo={
@@ -195,7 +246,7 @@ export default function RegistroPage() {
               mensajeVacio="No hay ventas registradas en esta fecha."
             />
           </>
-        )}
+        ) : null}
       </div>
     </main>
   );
