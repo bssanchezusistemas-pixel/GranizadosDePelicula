@@ -2,9 +2,15 @@ import type { CajaSession } from "@/lib/caja-session";
 
 const VERSION = "v1";
 
-function getSecret(): string {
+function getSecretOrNull(): string | null {
   const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 16) {
+  if (!secret || secret.length < 16) return null;
+  return secret;
+}
+
+function getSecret(): string {
+  const secret = getSecretOrNull();
+  if (!secret) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
         "SESSION_SECRET debe estar definido (mín. 16 caracteres) en producción.",
@@ -30,9 +36,10 @@ function fromBase64url(value: string): Uint8Array {
 }
 
 async function hmacSign(message: string): Promise<string> {
+  const secret = getSecret();
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(getSecret()),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -46,10 +53,13 @@ async function hmacSign(message: string): Promise<string> {
 }
 
 async function hmacVerify(message: string, signature: string): Promise<boolean> {
+  const secret = getSecretOrNull();
+  if (!secret) return false;
+
   try {
     const key = await crypto.subtle.importKey(
       "raw",
-      new TextEncoder().encode(getSecret()),
+      new TextEncoder().encode(secret),
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["verify"],

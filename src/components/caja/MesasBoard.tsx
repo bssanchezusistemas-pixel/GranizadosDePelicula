@@ -1,16 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { formatCOP } from "@/lib/currency";
 import {
   getUbicacionesAction,
   liberarUbicacionAction,
+  type ResultadoLiberarUbicacion,
 } from "@/app/caja/actions";
+import { CobroMesaModal } from "@/components/caja/CobroMesaModal";
 import type { Ubicacion } from "@/data/caja";
 
 export function MesasBoard() {
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [liberandoId, setLiberandoId] = useState<string | null>(null);
+  const [ubicacionModal, setUbicacionModal] = useState<Ubicacion | null>(null);
+  const [ultimaLiberacion, setUltimaLiberacion] =
+    useState<ResultadoLiberarUbicacion | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -29,15 +35,25 @@ export function MesasBoard() {
     cargar();
   }, [cargar]);
 
-  async function liberar(id: string, label: string) {
-    if (!confirm(`¿Liberar ${label}? Se cerrará el pedido abierto.`)) return;
-    setLiberandoId(id);
+  function abrirLiberar(ubicacion: Ubicacion) {
+    setError(null);
+    setUbicacionModal(ubicacion);
+  }
+
+  async function confirmarLiberar(pagaCon?: number) {
+    if (!ubicacionModal) return;
+    setLiberandoId(ubicacionModal.id);
     setError(null);
     try {
-      await liberarUbicacionAction(id);
+      const resultado = await liberarUbicacionAction(
+        ubicacionModal.id,
+        pagaCon,
+      );
+      setUltimaLiberacion(resultado);
+      setUbicacionModal(null);
       await cargar();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo liberar.");
+      throw e;
     } finally {
       setLiberandoId(null);
     }
@@ -60,6 +76,42 @@ export function MesasBoard() {
         </div>
       )}
 
+      {ultimaLiberacion && (
+        <div className="rounded-xl border border-emerald-700/40 bg-emerald-900/15 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-emerald-300">
+                ✓ {ultimaLiberacion.label} liberada
+                {ultimaLiberacion.numeroPedido
+                  ? ` · Pedido #${ultimaLiberacion.numeroPedido}`
+                  : ""}
+              </p>
+              {ultimaLiberacion.total != null && (
+                <p className="mt-1 text-sm text-white/60">
+                  Total cobrado: {formatCOP(ultimaLiberacion.total)}
+                  {ultimaLiberacion.pagaCon != null && (
+                    <> · Paga con {formatCOP(ultimaLiberacion.pagaCon)}</>
+                  )}
+                </p>
+              )}
+              {ultimaLiberacion.devuelta != null &&
+                ultimaLiberacion.pagaCon != null && (
+                  <p className="mt-2 font-[family-name:var(--font-display)] text-xl text-amber-400">
+                    Devuelta: {formatCOP(ultimaLiberacion.devuelta)}
+                  </p>
+                )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setUltimaLiberacion(null)}
+              className="rounded-lg border border-emerald-700/50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-300"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total" value={String(ubicaciones.length)} />
         <Stat label="Ocupadas" value={String(ocupadas)} accent="amber" />
@@ -70,9 +122,31 @@ export function MesasBoard() {
         />
       </div>
 
-      <GrupoMesas titulo="Mesas" items={mesas} liberandoId={liberandoId} onLiberar={liberar} />
-      <GrupoMesas titulo="Bancos" items={bancos} liberandoId={liberandoId} onLiberar={liberar} />
-      <GrupoMesas titulo="Barra" items={barra} liberandoId={liberandoId} onLiberar={liberar} />
+      <GrupoMesas
+        titulo="Mesas"
+        items={mesas}
+        liberandoId={liberandoId}
+        onLiberar={abrirLiberar}
+      />
+      <GrupoMesas
+        titulo="Bancos"
+        items={bancos}
+        liberandoId={liberandoId}
+        onLiberar={abrirLiberar}
+      />
+      <GrupoMesas
+        titulo="Barra"
+        items={barra}
+        liberandoId={liberandoId}
+        onLiberar={abrirLiberar}
+      />
+
+      <CobroMesaModal
+        ubicacion={ubicacionModal}
+        onClose={() => setUbicacionModal(null)}
+        onConfirm={confirmarLiberar}
+        loading={liberandoId === ubicacionModal?.id}
+      />
     </div>
   );
 }
@@ -113,7 +187,7 @@ function GrupoMesas({
   titulo: string;
   items: Ubicacion[];
   liberandoId: string | null;
-  onLiberar: (id: string, label: string) => void;
+  onLiberar: (ubicacion: Ubicacion) => void;
 }) {
   if (items.length === 0) return null;
 
@@ -146,7 +220,7 @@ function GrupoMesas({
                 <button
                   type="button"
                   disabled={liberandoId === u.id}
-                  onClick={() => onLiberar(u.id, u.label)}
+                  onClick={() => onLiberar(u)}
                   className="mt-3 w-full rounded-lg border border-white/10 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white/70 hover:border-neon hover:text-white disabled:opacity-50"
                 >
                   {liberandoId === u.id ? "..." : "Liberar"}

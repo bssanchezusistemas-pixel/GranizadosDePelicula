@@ -133,6 +133,8 @@ export function buildCsvDiario(
       "Destino",
       "Pago",
       "Total",
+      "Paga con",
+      "Devuelta",
       "Estado",
       "Items",
     ]),
@@ -149,6 +151,14 @@ export function buildCsvDiario(
         destinoPedido(p),
         FORMA_PAGO_LABEL[p.forma_pago],
         Number(p.total),
+        p.forma_pago === "efectivo" && p.paga_con != null
+          ? Number(p.paga_con)
+          : "",
+        p.forma_pago === "efectivo" &&
+        p.devuelta != null &&
+        Number(p.devuelta) > 0
+          ? Number(p.devuelta)
+          : "",
         p.estado,
         resumirItems(
           (p.items ?? []).map((i) => ({

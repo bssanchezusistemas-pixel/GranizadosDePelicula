@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { formatCOP } from "@/lib/currency";
-import { calcularDevuelta } from "@/data/domicilios";
+import {
+  PagoEfectivoBlock,
+  validarPagoEfectivo,
+} from "@/components/caja/PagoEfectivoBlock";
 import {
   COMISION_DOMICILIO,
   FORMA_PAGO_LABEL,
@@ -83,28 +86,15 @@ export function CheckoutBar({
   const sinJornadaDomicilio =
     esDomicilio && !cargandoDomiciliarios && domiciliarios.length === 0;
 
-  const totalConComision =
+  const totalACobrar =
     esDomicilio && comisionPagadaPor === "cliente"
       ? total + COMISION_DOMICILIO
       : total;
 
-  const pagaConInsuficiente =
-    esDomicilio &&
-    formaPago === "efectivo" &&
-    pagaCon > 0 &&
-    pagaCon < totalConComision;
+  const requierePagoEfectivo =
+    formaPago === "efectivo" && (esDomicilio || esRecoger);
 
-  const faltaPagaCon =
-    esDomicilio && formaPago === "efectivo" && (!pagaCon || pagaCon < totalConComision);
-
-  const devuelta =
-    esDomicilio && formaPago === "efectivo" && pagaCon > 0
-      ? calcularDevuelta({
-          forma_pago: formaPago,
-          valor_pedido: totalConComision,
-          paga_con: pagaCon,
-        })
-      : null;
+  const pagoEfectivo = validarPagoEfectivo(totalACobrar, pagaCon);
 
   const puedeConfirmar =
     !carritoVacio &&
@@ -114,8 +104,7 @@ export function CheckoutBar({
     !sinComision &&
     !sinDomiciliario &&
     !sinJornadaDomicilio &&
-    !pagaConInsuficiente &&
-    !faltaPagaCon &&
+    (!requierePagoEfectivo || pagoEfectivo.ok) &&
     !confirmando;
 
   return (
@@ -311,37 +300,12 @@ export function CheckoutBar({
         </div>
       )}
 
-      {esDomicilio && formaPago === "efectivo" && (
-        <div className="mb-5">
-          <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
-            ¿Con cuánto paga el cliente?
-          </label>
-          <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-cinema-black px-4 py-3">
-            <span className="text-base font-bold text-white/40">$</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={pagaCon ? pagaCon.toLocaleString("es-CO") : ""}
-              onChange={(e) =>
-                onPagaCon(Number(e.target.value.replace(/\D/g, "")) || 0)
-              }
-              placeholder="0"
-              className={`w-full bg-transparent font-black text-lg text-white placeholder:font-medium placeholder:text-white/30 focus:outline-none ${
-                pagaConInsuficiente ? "text-red-400" : ""
-              }`}
-            />
-          </div>
-          {devuelta !== null && devuelta >= 0 && pagaCon > 0 && (
-            <div className="mt-2 flex items-center justify-between rounded-lg border border-amber-700/40 bg-amber-900/10 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
-                Devuelta al cliente
-              </p>
-              <p className="font-[family-name:var(--font-display)] text-lg text-amber-400">
-                {formatCOP(devuelta)}
-              </p>
-            </div>
-          )}
-        </div>
+      {requierePagoEfectivo && (
+        <PagoEfectivoBlock
+          total={totalACobrar}
+          pagaCon={pagaCon}
+          onPagaCon={onPagaCon}
+        />
       )}
 
       <div className="mb-4 flex items-center justify-between border-t border-white/8 pt-4">
@@ -349,7 +313,7 @@ export function CheckoutBar({
           Total a cobrar
         </span>
         <span className="font-[family-name:var(--font-display)] text-2xl text-white">
-          {formatCOP(totalConComision)}
+          {formatCOP(totalACobrar)}
         </span>
       </div>
 
@@ -371,7 +335,7 @@ export function CheckoutBar({
                 ? "Selecciona repartidor"
                 : sinComision
                   ? "Elige quién paga comisión"
-                  : `Confirmar pedido · ${formatCOP(totalConComision)}`}
+                  : `Confirmar pedido · ${formatCOP(totalACobrar)}`}
       </button>
     </div>
   );

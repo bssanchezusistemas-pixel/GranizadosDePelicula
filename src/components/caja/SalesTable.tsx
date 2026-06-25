@@ -22,6 +22,8 @@ const columnas = [
   "Destino",
   "Pago",
   "Total",
+  "Paga con",
+  "Devuelta",
 ];
 
 export function SalesTable({
@@ -50,7 +52,7 @@ export function SalesTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse">
+        <table className="w-full min-w-[880px] border-collapse">
           <thead>
             <tr>
               {columnas.map((h) => (
@@ -109,6 +111,18 @@ export function SalesTable({
                 </td>
                 <td className="px-5 py-3.5 text-sm font-black text-white">
                   {formatCOP(Number(p.total))}
+                </td>
+                <td className="px-5 py-3.5 text-sm text-zinc-400">
+                  {p.forma_pago === "efectivo" && p.paga_con != null
+                    ? formatCOP(Number(p.paga_con))
+                    : "—"}
+                </td>
+                <td className="px-5 py-3.5 text-sm font-bold text-amber-400">
+                  {p.forma_pago === "efectivo" &&
+                  p.devuelta != null &&
+                  Number(p.devuelta) > 0
+                    ? formatCOP(Number(p.devuelta))
+                    : "—"}
                 </td>
               </tr>
             ))}

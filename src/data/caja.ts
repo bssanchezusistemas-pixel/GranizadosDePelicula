@@ -45,6 +45,13 @@ export interface Mesero {
   activo: boolean;
 }
 
+export interface PedidoAbiertoResumen {
+  id: string;
+  numero_pedido: number;
+  total: number;
+  forma_pago: FormaPago;
+}
+
 export interface Ubicacion {
   id: string;
   tipo: TipoUbicacion;
@@ -52,6 +59,7 @@ export interface Ubicacion {
   label: string;
   estado: EstadoUbicacion;
   pedido_abierto_id: string | null;
+  pedido_abierto?: PedidoAbiertoResumen | null;
 }
 
 export interface PedidoItemCaja {

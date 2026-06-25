@@ -72,7 +72,11 @@ export default function RegistroPage() {
         setResumenSemana(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cargar el registro.");
+      const message =
+        e instanceof Error && e.message && !e.message.includes("Server Components")
+          ? e.message
+          : "No se pudo cargar el registro. Cierra sesión y vuelve a entrar como admin.";
+      setError(message);
       setPedidos([]);
       setCierre(null);
       setResumenSemana(null);

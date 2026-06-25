@@ -12,6 +12,7 @@ import {
   getUbicacionesAction,
 } from "@/app/caja/actions";
 import type { FormaPago } from "@/data/domicilios";
+import { formatCOP } from "@/lib/currency";
 import {
   COMISION_DOMICILIO,
   type DomiciliarioConJornada,
@@ -195,17 +196,39 @@ export default function CajaPage() {
       )}
 
       {ultimoPedido && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-700/40 bg-emerald-900/15 px-5 py-3">
-          <p className="text-sm font-bold text-emerald-300">
-            ✓ Pedido #{ultimoPedido.numero_pedido} confirmado
-          </p>
-          <button
-            type="button"
-            onClick={() => setUltimoPedido(null)}
-            className="rounded-lg border border-emerald-700/50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-300"
-          >
-            Cerrar
-          </button>
+        <div className="mb-5 rounded-xl border border-emerald-700/40 bg-emerald-900/15 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-emerald-300">
+                ✓ Pedido #{ultimoPedido.numero_pedido} confirmado
+              </p>
+              {(ultimoPedido.tipo_entrega === "recoger" ||
+                ultimoPedido.tipo_entrega === "domicilio") &&
+                ultimoPedido.forma_pago === "efectivo" && (
+                  <div className="mt-3 space-y-1 text-sm text-white/70">
+                    <p>
+                      Total: {formatCOP(Number(ultimoPedido.total))}
+                      {ultimoPedido.paga_con != null && (
+                        <> · Paga con {formatCOP(Number(ultimoPedido.paga_con))}</>
+                      )}
+                    </p>
+                    {ultimoPedido.devuelta != null &&
+                      Number(ultimoPedido.devuelta) >= 0 && (
+                        <p className="font-[family-name:var(--font-display)] text-2xl text-amber-400">
+                          Devuelta: {formatCOP(Number(ultimoPedido.devuelta))}
+                        </p>
+                      )}
+                  </div>
+                )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setUltimoPedido(null)}
+              className="rounded-lg border border-emerald-700/50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-300"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       )}
 
@@ -243,9 +266,11 @@ export default function CajaPage() {
                 if (t !== "recoger") setNombreRecoge("");
                 if (t !== "domicilio") {
                   setDireccion("");
-                  setPagaCon(0);
                   setComisionPagadaPor(null);
                   setDomiciliarioId(null);
+                }
+                if (t !== "domicilio" && t !== "recoger") {
+                  setPagaCon(0);
                 }
               }}
               onFormaPago={setFormaPago}

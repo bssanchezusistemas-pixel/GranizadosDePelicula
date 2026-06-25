@@ -19,11 +19,12 @@ import {
   type CierreDiarioCompleto,
   type ResumenRepartidorDia,
   type ProductoTopDia,
+  type PedidoAbiertoResumen,
   type Ubicacion,
   resumirItems,
 } from "@/data/caja";
 import { fechaHoyBogota, rangoDiaBogota, rangoSemanaBogota, fechaDesdeIsoBogota, diasDeSemana, formatFechaCorta } from "@/lib/dates";
-import { requireSupabaseAdmin, isSupabaseAdmin } from "@/lib/admin-auth";
+import { isSupabaseAdmin } from "@/lib/admin-auth";
 import { sanitizeCartItems } from "@/lib/menu-prices";
 import {
   getTurnoDelDia,
@@ -70,7 +71,6 @@ async function requireAdmin() {
   if (!session || session.rol !== "admin") {
     throw new Error("Solo el admin puede hacer esto.");
   }
-  await requireSupabaseAdmin();
   return session;
 }
 
@@ -137,17 +137,87 @@ export async function getMeserosAction(): Promise<Mesero[]> {
   return (data as Mesero[]) ?? [];
 }
 
+function normalizePedidoAbierto(raw: unknown): PedidoAbiertoResumen | null {
+  if (!raw) return null;
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  if (!row || typeof row !== "object") return null;
+  return row as PedidoAbiertoResumen;
+}
+
+function mapUbicacionRow(row: Record<string, unknown>): Ubicacion {
+  const { pedido_abierto, ...rest } = row;
+  return {
+    ...(rest as unknown as Ubicacion),
+    pedido_abierto: normalizePedidoAbierto(pedido_abierto),
+  };
+}
+
+const UBICACION_PEDIDO_EMBED = `pedido_abierto:pedidos_caja!ubicaciones_pedido_abierto_id_fkey(
+  id, numero_pedido, total, forma_pago
+)`;
+
+async function fetchPedidoAbiertoPorId(
+  supabase: ReturnType<typeof createServiceClient>,
+  pedidoId: string,
+): Promise<PedidoAbiertoResumen | null> {
+  const { data, error } = await supabase
+    .from("pedidos_caja")
+    .select("id, numero_pedido, total, forma_pago")
+    .eq("id", pedidoId)
+    .eq("estado", "abierto")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as PedidoAbiertoResumen | null;
+}
+
 export async function getUbicacionesAction(): Promise<Ubicacion[]> {
   await requireCajaSession();
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("ubicaciones")
-    .select("*")
+    .select(`*, ${UBICACION_PEDIDO_EMBED}`)
     .order("tipo")
     .order("numero", { ascending: true, nullsFirst: false });
 
   if (error) throw new Error(error.message);
-  return (data as Ubicacion[]) ?? [];
+  return (data ?? []).map((row) =>
+    mapUbicacionRow(row as Record<string, unknown>),
+  );
+}
+
+export async function getPedidoParaCobroMesaAction(ubicacionId: string): Promise<{
+  label: string;
+  pedido: PedidoAbiertoResumen;
+} | null> {
+  await requireCajaSession();
+  const supabase = createServiceClient();
+
+  const { data: ubicacion, error } = await supabase
+    .from("ubicaciones")
+    .select(`id, label, pedido_abierto_id, ${UBICACION_PEDIDO_EMBED}`)
+    .eq("id", ubicacionId)
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  let pedido = normalizePedidoAbierto(ubicacion.pedido_abierto);
+  if (!pedido && ubicacion.pedido_abierto_id) {
+    pedido = await fetchPedidoAbiertoPorId(
+      supabase,
+      ubicacion.pedido_abierto_id as string,
+    );
+  }
+
+  if (!pedido) return null;
+
+  return {
+    label: ubicacion.label as string,
+    pedido: {
+      ...pedido,
+      total: Number(pedido.total),
+    },
+  };
 }
 
 export async function getDomiciliariosConJornadaAction(): Promise<
@@ -287,7 +357,10 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   let pagaCon = input.pagaCon ?? null;
   let devuelta: number | null = null;
 
-  if (input.formaPago === "efectivo" && input.tipoEntrega === "domicilio") {
+  if (
+    input.formaPago === "efectivo" &&
+    (input.tipoEntrega === "domicilio" || input.tipoEntrega === "recoger")
+  ) {
     if (!pagaCon || pagaCon < total) {
       throw new Error("Registra con cuánto paga el cliente en efectivo.");
     }
@@ -379,8 +452,8 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
         forma_pago: input.formaPago,
         total,
         estado: "cerrado",
-        paga_con: pagaCon,
-        devuelta,
+        paga_con: input.formaPago === "efectivo" ? pagaCon : null,
+        devuelta: input.formaPago === "efectivo" ? devuelta : null,
         comision_pagada_por:
           input.tipoEntrega === "domicilio" ? input.comisionPagadaPor : null,
         cerrado_en: new Date().toISOString(),
@@ -488,7 +561,69 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   return completo as PedidoCaja;
 }
 
-export async function liberarUbicacionAction(ubicacionId: string) {
+export interface ResultadoLiberarUbicacion {
+  label: string;
+  numeroPedido: number | null;
+  total: number | null;
+  devuelta: number | null;
+  pagaCon: number | null;
+}
+
+async function cerrarPedidoMesaAlLiberar(
+  supabase: ReturnType<typeof createServiceClient>,
+  pedidoId: string,
+  pagaCon?: number,
+) {
+  const { data: pedido, error: errPedido } = await supabase
+    .from("pedidos_caja")
+    .select("total, forma_pago, numero_pedido")
+    .eq("id", pedidoId)
+    .single();
+
+  if (errPedido) throw new Error(errPedido.message);
+
+  const total = Number(pedido.total);
+  const update: Record<string, unknown> = {
+    estado: "cerrado",
+    cerrado_en: new Date().toISOString(),
+  };
+
+  let devuelta: number | null = null;
+  let pagaConGuardado: number | null = null;
+
+  if (pedido.forma_pago === "efectivo") {
+    if (!pagaCon || pagaCon < total) {
+      throw new Error("Registra con cuánto paga el cliente en efectivo.");
+    }
+    devuelta = calcularDevuelta({
+      forma_pago: "efectivo",
+      valor_pedido: total,
+      paga_con: pagaCon,
+    });
+    update.paga_con = pagaCon;
+    update.devuelta = devuelta;
+    pagaConGuardado = pagaCon;
+  }
+
+  const { error: errUpdate } = await supabase
+    .from("pedidos_caja")
+    .update(update)
+    .eq("id", pedidoId);
+
+  if (errUpdate) throw new Error(errUpdate.message);
+
+  return {
+    numeroPedido: Number(pedido.numero_pedido),
+    total,
+    devuelta,
+    pagaCon: pagaConGuardado,
+  };
+}
+
+export async function liberarUbicacionAction(
+  ubicacionId: string,
+  pagaCon?: number,
+): Promise<ResultadoLiberarUbicacion> {
   await requireCajaSession();
   const supabase = createServiceClient();
 
@@ -500,16 +635,24 @@ export async function liberarUbicacionAction(ubicacionId: string) {
 
   if (errUb) throw new Error(errUb.message);
 
-  if (ubicacion.pedido_abierto_id) {
-    const { error: errPed } = await supabase
-      .from("pedidos_caja")
-      .update({
-        estado: "cerrado",
-        cerrado_en: new Date().toISOString(),
-      })
-      .eq("id", ubicacion.pedido_abierto_id);
+  let cierre: {
+    numeroPedido: number | null;
+    total: number | null;
+    devuelta: number | null;
+    pagaCon: number | null;
+  } = {
+    numeroPedido: null,
+    total: null,
+    devuelta: null,
+    pagaCon: null,
+  };
 
-    if (errPed) throw new Error(errPed.message);
+  if (ubicacion.pedido_abierto_id) {
+    cierre = await cerrarPedidoMesaAlLiberar(
+      supabase,
+      ubicacion.pedido_abierto_id,
+      pagaCon,
+    );
   }
 
   const { error } = await supabase
@@ -519,6 +662,11 @@ export async function liberarUbicacionAction(ubicacionId: string) {
 
   if (error) throw new Error(error.message);
   revalidateCaja();
+
+  return {
+    label: ubicacion.label as string,
+    ...cierre,
+  };
 }
 
 export async function getPedidosDelDiaAction(): Promise<PedidoCaja[]> {
@@ -659,17 +807,21 @@ export async function getCierreDiarioCompletoAction(
   if (errIds) throw new Error(errIds.message);
 
   const ids = (pedidosIds ?? []).map((p) => p.id as string);
-  let items: { nombre: string; cantidad: number; precio_unitario: number }[] =
+  const items: { nombre: string; cantidad: number; precio_unitario: number }[] =
     [];
 
   if (ids.length > 0) {
-    const { data: itemsData, error: errItems } = await supabase
-      .from("pedido_items_caja")
-      .select("nombre, cantidad, precio_unitario")
-      .in("pedido_id", ids);
+    const chunkSize = 80;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const { data: itemsData, error: errItems } = await supabase
+        .from("pedido_items_caja")
+        .select("nombre, cantidad, precio_unitario")
+        .in("pedido_id", chunk);
 
-    if (errItems) throw new Error(errItems.message);
-    items = itemsData ?? [];
+      if (errItems) throw new Error(errItems.message);
+      if (itemsData) items.push(...itemsData);
+    }
   }
 
   const pedidos = pedidosCaja ?? [];
@@ -956,8 +1108,11 @@ export async function cerrarOperacionCompletaAction() {
 }
 
 /** Admin: misma acción de liberar mesa */
-export async function liberarUbicacionAdminAction(ubicacionId: string) {
-  await requireSupabaseAdmin();
+export async function liberarUbicacionAdminAction(
+  ubicacionId: string,
+  pagaCon?: number,
+): Promise<ResultadoLiberarUbicacion> {
+  await requireAdmin();
 
   const supabase = createServiceClient();
   const { data: ubicacion, error: errUb } = await supabase
@@ -968,11 +1123,24 @@ export async function liberarUbicacionAdminAction(ubicacionId: string) {
 
   if (errUb) throw new Error(errUb.message);
 
+  let cierre: {
+    numeroPedido: number | null;
+    total: number | null;
+    devuelta: number | null;
+    pagaCon: number | null;
+  } = {
+    numeroPedido: null,
+    total: null,
+    devuelta: null,
+    pagaCon: null,
+  };
+
   if (ubicacion.pedido_abierto_id) {
-    await supabase
-      .from("pedidos_caja")
-      .update({ estado: "cerrado", cerrado_en: new Date().toISOString() })
-      .eq("id", ubicacion.pedido_abierto_id);
+    cierre = await cerrarPedidoMesaAlLiberar(
+      supabase,
+      ubicacion.pedido_abierto_id,
+      pagaCon,
+    );
   }
 
   const { error } = await supabase
@@ -982,6 +1150,11 @@ export async function liberarUbicacionAdminAction(ubicacionId: string) {
 
   if (error) throw new Error(error.message);
   revalidateCaja();
+
+  return {
+    label: ubicacion.label as string,
+    ...cierre,
+  };
 }
 
 export type { ItemPedidoCarrito, PedidoItemCaja };

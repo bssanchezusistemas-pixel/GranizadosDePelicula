@@ -116,12 +116,11 @@ export function MenuSection() {
         </nav>
 
         <div className="space-y-16 sm:space-y-20">
-          {MENU_CATEGORIES.map((category, index) => (
+          {MENU_CATEGORIES.map((category) => (
             <MenuCategoryBlock
               key={category.id}
               category={category}
-              index={index}
-              ref={(el) => {
+              categoryRef={(el) => {
                 if (el) categoryRefs.current[category.id] = el;
               }}
               onAddItem={addItem}
@@ -135,13 +134,11 @@ export function MenuSection() {
 
 function MenuCategoryBlock({
   category,
-  index,
-  ref,
+  categoryRef,
   onAddItem,
 }: {
   category: MenuCategory;
-  index: number;
-  ref: (el: HTMLElement | null) => void;
+  categoryRef: (el: HTMLElement | null) => void;
   onAddItem: ReturnType<typeof useCart>["addItem"];
 }) {
   const accent = category.accentColor ?? "#ff0033";
@@ -149,37 +146,20 @@ function MenuCategoryBlock({
   return (
     <div
       id={`menu-${category.id}`}
-      ref={ref}
+      ref={categoryRef}
       className="scroll-mt-28 sm:scroll-mt-32"
     >
       <div
-        className="mb-6 flex items-end justify-between gap-4 border-b pb-4"
+        className="mb-6 border-b pb-4"
         style={{ borderColor: `${accent}33` }}
       >
-        <div>
-          <p
-            className="text-[10px] uppercase tracking-[0.3em]"
-            style={{ color: `${accent}99` }}
-          >
-            Sección {String(index + 1).padStart(2, "0")}
-          </p>
-          <h3
-            className="mt-1 font-[family-name:var(--font-display)] text-2xl uppercase sm:text-3xl"
-            style={{ color: category.accentColor ? accent : "#fff" }}
-          >
-            {category.label}
-          </h3>
-          <p className="mt-1 text-sm text-white/50">{category.tagline}</p>
-        </div>
-        <span
-          className="shrink-0 rounded-full px-3 py-1 text-[10px] uppercase tracking-widest"
-          style={{
-            backgroundColor: `${accent}18`,
-            color: accent,
-          }}
+        <h3
+          className="font-[family-name:var(--font-display)] text-2xl uppercase sm:text-3xl"
+          style={{ color: category.accentColor ? accent : "#fff" }}
         >
-          {category.items.length} platos
-        </span>
+          {category.label}
+        </h3>
+        <p className="mt-1 text-sm text-white/50">{category.tagline}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -233,19 +213,17 @@ function MenuItemCard({
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white sm:text-lg">
-                {item.name}
-              </h4>
-              {item.badge && (
-                <span
-                  className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                  style={{ backgroundColor: accentColor }}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </div>
+            <h4 className="font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white sm:text-lg">
+              {item.name}
+            </h4>
+            {item.badge && (
+              <span
+                className="mt-1.5 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
+                style={{ backgroundColor: accentColor }}
+              >
+                {item.badge}
+              </span>
+            )}
           </div>
           <span
             className="shrink-0 -rotate-2 rounded-md px-2.5 py-1 font-[family-name:var(--font-display)] text-sm text-white shadow-md"
@@ -255,12 +233,8 @@ function MenuItemCard({
           </span>
         </div>
 
-        <p className="mb-4 flex-1 text-xs leading-relaxed text-white/55">
-          {item.description}
-        </p>
-
         {hasSizes && item.sizes && (
-          <div className="mb-4">
+          <div className="mb-3">
             <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">
               Tamaño
             </p>
@@ -291,6 +265,10 @@ function MenuItemCard({
             </div>
           </div>
         )}
+
+        <p className="mb-4 flex-1 text-xs leading-relaxed text-white/55">
+          {item.description}
+        </p>
 
         <button
           type="button"

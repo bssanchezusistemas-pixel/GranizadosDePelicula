@@ -2,16 +2,22 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { formatCOP } from "@/lib/currency";
 import {
   getUbicacionesAction,
   liberarUbicacionAdminAction,
+  type ResultadoLiberarUbicacion,
 } from "@/app/caja/actions";
+import { CobroMesaModal } from "@/components/caja/CobroMesaModal";
 import type { Ubicacion } from "@/data/caja";
 
 export default function AdminMesasPage() {
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [liberandoId, setLiberandoId] = useState<string | null>(null);
+  const [ubicacionModal, setUbicacionModal] = useState<Ubicacion | null>(null);
+  const [ultimaLiberacion, setUltimaLiberacion] =
+    useState<ResultadoLiberarUbicacion | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
@@ -30,15 +36,20 @@ export default function AdminMesasPage() {
     cargar();
   }, [cargar]);
 
-  async function liberar(id: string, label: string) {
-    if (!confirm(`¿Liberar ${label} desde admin?`)) return;
-    setLiberandoId(id);
+  async function confirmarLiberar(pagaCon?: number) {
+    if (!ubicacionModal) return;
+    setLiberandoId(ubicacionModal.id);
     setError(null);
     try {
-      await liberarUbicacionAdminAction(id);
+      const resultado = await liberarUbicacionAdminAction(
+        ubicacionModal.id,
+        pagaCon,
+      );
+      setUltimaLiberacion(resultado);
+      setUbicacionModal(null);
       await cargar();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo liberar.");
+      throw e;
     } finally {
       setLiberandoId(null);
     }
@@ -86,6 +97,42 @@ export default function AdminMesasPage() {
           </div>
         )}
 
+        {ultimaLiberacion && (
+          <div className="mb-6 rounded-xl border border-emerald-700/40 bg-emerald-900/15 px-5 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-emerald-300">
+                  ✓ {ultimaLiberacion.label} liberada
+                  {ultimaLiberacion.numeroPedido
+                    ? ` · Pedido #${ultimaLiberacion.numeroPedido}`
+                    : ""}
+                </p>
+                {ultimaLiberacion.total != null && (
+                  <p className="mt-1 text-sm text-white/60">
+                    Total cobrado: {formatCOP(ultimaLiberacion.total)}
+                    {ultimaLiberacion.pagaCon != null && (
+                      <> · Paga con {formatCOP(ultimaLiberacion.pagaCon)}</>
+                    )}
+                  </p>
+                )}
+                {ultimaLiberacion.devuelta != null &&
+                  ultimaLiberacion.pagaCon != null && (
+                    <p className="mt-2 font-[family-name:var(--font-display)] text-xl text-amber-400">
+                      Devuelta: {formatCOP(ultimaLiberacion.devuelta)}
+                    </p>
+                  )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setUltimaLiberacion(null)}
+                className="rounded-lg border border-emerald-700/50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-300"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <p className="text-white/50">Cargando...</p>
         ) : (
@@ -111,7 +158,7 @@ export default function AdminMesasPage() {
                     <button
                       type="button"
                       disabled={liberandoId === u.id}
-                      onClick={() => liberar(u.id, u.label)}
+                      onClick={() => setUbicacionModal(u)}
                       className="mt-2 w-full rounded-lg border border-white/10 py-1 text-[10px] font-bold uppercase hover:border-neon disabled:opacity-50"
                     >
                       Liberar
@@ -123,6 +170,13 @@ export default function AdminMesasPage() {
           </>
         )}
       </div>
+
+      <CobroMesaModal
+        ubicacion={ubicacionModal}
+        onClose={() => setUbicacionModal(null)}
+        onConfirm={confirmarLiberar}
+        loading={liberandoId === ubicacionModal?.id}
+      />
     </div>
   );
 }
