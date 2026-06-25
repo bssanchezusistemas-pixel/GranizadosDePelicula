@@ -22,12 +22,14 @@ function fitCanvas(
   canvas: HTMLCanvasElement,
   img: HTMLImageElement,
   dpr: number,
+  mode: "cover" | "contain" = "cover",
 ) {
   const parent = canvas.parentElement;
   if (!parent) return;
 
   const maxW = parent.clientWidth;
   const maxH = parent.clientHeight;
+  if (maxW <= 0 || maxH <= 0) return;
 
   canvas.width = maxW * dpr;
   canvas.height = maxH * dpr;
@@ -40,7 +42,13 @@ function fitCanvas(
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, maxW, maxH);
 
-  const scale = Math.max(maxW / img.naturalWidth, maxH / img.naturalHeight);
+  const scaleX = maxW / img.naturalWidth;
+  const scaleY = maxH / img.naturalHeight;
+  const scale =
+    mode === "contain"
+      ? Math.min(scaleX, scaleY)
+      : Math.max(scaleX, scaleY);
+
   const w = img.naturalWidth * scale;
   const h = img.naturalHeight * scale;
   const x = (maxW - w) / 2;
@@ -69,6 +77,7 @@ export function HeroScroll() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
   const frameIndexRef = useRef(0);
+  const isMobileRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [loadPct, setLoadPct] = useState(0);
   const [staticHero, setStaticHero] = useState(false);
@@ -89,8 +98,10 @@ export function HeroScroll() {
 
       const isMobile =
         typeof window !== "undefined" && window.innerWidth < 768;
+      isMobileRef.current = isMobile;
       const reducedMotion = prefersReducedMotion();
       const canvasDpr = getCanvasDpr(isMobile);
+      const fitMode = isMobile ? "contain" : "cover";
 
       if (reducedMotion) {
         setStaticHero(true);
@@ -100,7 +111,7 @@ export function HeroScroll() {
         imagesRef.current = [lastFrame];
         const canvas = canvasRef.current;
         if (canvas) {
-          fitCanvas(canvas, lastFrame, canvasDpr);
+          fitCanvas(canvas, lastFrame, canvasDpr, fitMode);
         }
         setReady(true);
         return;
@@ -117,7 +128,7 @@ export function HeroScroll() {
 
       const canvas = canvasRef.current;
       if (canvas) {
-        fitCanvas(canvas, first, canvasDpr);
+        fitCanvas(canvas, first, canvasDpr, fitMode);
       }
 
       setReady(true);
@@ -140,10 +151,15 @@ export function HeroScroll() {
         const img = imagesRef.current[index];
         const canvasEl = canvasRef.current;
         if (!img?.complete || !canvasEl) return;
-        fitCanvas(canvasEl, img, canvasDpr);
+        const mode = isMobileRef.current ? "contain" : "cover";
+        const dpr = getCanvasDpr(isMobileRef.current);
+        fitCanvas(canvasEl, img, dpr, mode);
       };
 
-      resizeHandler = () => draw(frameIndexRef.current);
+      resizeHandler = () => {
+        isMobileRef.current = window.innerWidth < 768;
+        draw(frameIndexRef.current);
+      };
       window.addEventListener("resize", resizeHandler);
 
       gsapCtx = gsap.context(() => {
@@ -230,13 +246,15 @@ export function HeroScroll() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,0,51,0.12)_0%,transparent_60%)]" />
 
         <div className="absolute inset-0 z-10">
-          <canvas
-            ref={canvasRef}
-            className={`block h-full w-full transition-opacity duration-500 ${
-              ready ? "opacity-100" : "opacity-0"
-            }`}
-            aria-label="Animación de hamburguesa armándose al hacer scroll"
-          />
+          <div className="absolute inset-x-0 top-[clamp(6.75rem,21vh,9.5rem)] bottom-[clamp(5.25rem,15vh,7.5rem)] md:inset-0">
+            <canvas
+              ref={canvasRef}
+              className={`block h-full w-full transition-opacity duration-500 ${
+                ready ? "opacity-100" : "opacity-0"
+              }`}
+              aria-label="Animación de hamburguesa armándose al hacer scroll"
+            />
+          </div>
           {!ready && (
             <p className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-[0.3em] text-white/40">
               Cargando escena… {loadPct}%
