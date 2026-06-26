@@ -40,7 +40,8 @@ function fitCanvas(
   if (!ctx) return null;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, maxW, maxH);
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(0, 0, maxW, maxH);
 
   const scaleX = maxW / img.naturalWidth;
   const scaleY = maxH / img.naturalHeight;
@@ -87,6 +88,7 @@ export function HeroScroll() {
 
     let cancelled = false;
     let resizeHandler: (() => void) | null = null;
+    let resizeObserver: ResizeObserver | null = null;
     let gsapCtx: gsap.Context | null = null;
 
     const init = async () => {
@@ -162,6 +164,14 @@ export function HeroScroll() {
       };
       window.addEventListener("resize", resizeHandler);
 
+      const canvasParent = canvasRef.current?.parentElement;
+      if (canvasParent && typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(() =>
+          draw(frameIndexRef.current),
+        );
+        resizeObserver.observe(canvasParent);
+      }
+
       gsapCtx = gsap.context(() => {
         const state = { frame: 0 };
         const scrollEnd = isMobile ? "+=150%" : "+=180%";
@@ -221,6 +231,7 @@ export function HeroScroll() {
     return () => {
       cancelled = true;
       if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      resizeObserver?.disconnect();
       gsapCtx?.revert();
     };
   }, []);
@@ -240,21 +251,19 @@ export function HeroScroll() {
         className="relative h-[100dvh] min-h-[100svh] w-full overflow-hidden"
       >
         <div
-          className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-30"
+          className="pointer-events-none absolute inset-0 hidden bg-cover bg-center opacity-30 md:block"
           style={{ backgroundImage: `url(${HERO_BG})` }}
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,0,51,0.12)_0%,transparent_60%)]" />
 
         <div className="absolute inset-0 z-10">
-          <div className="absolute inset-x-0 top-[clamp(6.75rem,21vh,9.5rem)] bottom-[clamp(5.25rem,15vh,7.5rem)] md:inset-0">
-            <canvas
-              ref={canvasRef}
-              className={`block h-full w-full transition-opacity duration-500 ${
-                ready ? "opacity-100" : "opacity-0"
-              }`}
-              aria-label="Animación de hamburguesa armándose al hacer scroll"
-            />
-          </div>
+          <canvas
+            ref={canvasRef}
+            className={`block h-full w-full transition-opacity duration-500 ${
+              ready ? "opacity-100" : "opacity-0"
+            }`}
+            aria-label="Animación de hamburguesa armándose al hacer scroll"
+          />
           {!ready && (
             <p className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-[0.3em] text-white/40">
               Cargando escena… {loadPct}%
