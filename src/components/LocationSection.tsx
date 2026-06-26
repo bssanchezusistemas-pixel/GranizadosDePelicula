@@ -2,30 +2,50 @@
 
 import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { BUSINESS } from "@/data/menu";
+import {
+  createDebouncedScrollRefresh,
+  registerGsapPlugins,
+} from "@/lib/gsap-client";
+import { prefersReducedMotion } from "@/lib/cart-anchor";
 
 export function LocationSection() {
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    registerGsapPlugins();
+
+    if (prefersReducedMotion()) return;
+
+    const debouncedRefresh = createDebouncedScrollRefresh(200);
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const reveals = gsap.utils.toArray<HTMLElement>(
+      ".location-reveal",
+      section,
+    );
+    if (reveals.length === 0) return;
 
     const ctx = gsap.context(() => {
-      gsap.from(".location-reveal", {
-        y: 50,
-        opacity: 0,
+      gsap.set(reveals, { autoAlpha: 0, y: 50 });
+
+      gsap.to(reveals, {
+        autoAlpha: 1,
+        y: 0,
         duration: 0.9,
         stagger: 0.15,
         ease: "power3.out",
         scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top 78%",
+          trigger: section,
+          start: "clamp(top 85%)",
           once: true,
-          toggleActions: "play none none none",
+          invalidateOnRefresh: true,
         },
       });
-    }, sectionRef);
+    }, section);
+
+    requestAnimationFrame(() => debouncedRefresh());
 
     return () => ctx.revert();
   }, []);

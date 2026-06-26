@@ -115,7 +115,7 @@ export function MenuSection() {
           </div>
         </nav>
 
-        <div className="space-y-16 sm:space-y-20">
+        <div className="space-y-10 sm:space-y-16 md:space-y-20">
           {MENU_CATEGORIES.map((category) => (
             <MenuCategoryBlock
               key={category.id}

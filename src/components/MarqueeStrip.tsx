@@ -16,7 +16,7 @@ export function MarqueeStrip() {
   const sequence = [...ITEMS, ...ITEMS];
 
   return (
-    <div className="overflow-hidden border-y border-neon/20 bg-neon py-3">
+    <div className="max-w-full overflow-hidden border-y border-neon/20 bg-neon py-3">
       <div className="flex animate-marquee gap-8 whitespace-nowrap">
         {sequence.map((item, index) => (
           <span

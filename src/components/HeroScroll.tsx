@@ -2,16 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { BUSINESS, buildWhatsAppUrl } from "@/data/menu";
 import {
   buildFrameSequence,
-  getFrameStep,
   getFrameUrl,
+  getMobileFrameUrl,
   HERO_BG,
+  TOTAL_MOBILE_FRAMES,
   TOTAL_SOURCE_FRAMES,
 } from "@/data/heroFrames";
-import { prefersReducedMotion } from "@/lib/cart-anchor";
+import {
+  clampedScrollRange,
+  createDebouncedScrollRefresh,
+  createRafScheduler,
+  getHeroScrollConfig,
+  registerGsapPlugins,
+} from "@/lib/gsap-client";
+
+type FrameSource = "desktop" | "mobile";
 
 function getCanvasDpr(isMobile: boolean): number {
   const raw = window.devicePixelRatio || 1;
@@ -23,6 +31,8 @@ function fitCanvas(
   img: HTMLImageElement,
   dpr: number,
   mode: "cover" | "contain" = "cover",
+  focalY = 0.5,
+  fitScale = 1,
 ) {
   const parent = canvas.parentElement;
   if (!parent) return;
@@ -37,7 +47,7 @@ function fitCanvas(
   canvas.style.height = `${maxH}px`;
 
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+  if (!ctx) return;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = "#0a0a0a";
@@ -45,29 +55,108 @@ function fitCanvas(
 
   const scaleX = maxW / img.naturalWidth;
   const scaleY = maxH / img.naturalHeight;
-  const scale =
+  const baseScale =
     mode === "contain"
       ? Math.min(scaleX, scaleY)
       : Math.max(scaleX, scaleY);
+  const scale = baseScale * fitScale;
 
   const w = img.naturalWidth * scale;
   const h = img.naturalHeight * scale;
   const x = (maxW - w) / 2;
-  const y = (maxH - h) / 2;
+  const y =
+    mode === "cover"
+      ? focalY * (maxH - h)
+      : (maxH - h) / 2;
 
   ctx.drawImage(img, x, y, w, h);
-  return ctx;
 }
 
-function preloadFrame(frameNumber: number): Promise<HTMLImageElement> {
+function preloadFrame(
+  frameNumber: number,
+  getUrl: (n: number) => string,
+): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.decoding = "async";
     img.onload = () => resolve(img);
     img.onerror = () =>
       reject(new Error(`No se pudo cargar frame ${frameNumber}`));
-    img.src = getFrameUrl(frameNumber);
+    img.src = getUrl(frameNumber);
   });
+}
+
+function getFrameSource(isMobile: boolean): FrameSource {
+  return isMobile ? "mobile" : "desktop";
+}
+
+function getSourceConfig(source: FrameSource) {
+  return source === "mobile"
+    ? {
+        total: TOTAL_MOBILE_FRAMES,
+        getUrl: getMobileFrameUrl,
+      }
+    : {
+        total: TOTAL_SOURCE_FRAMES,
+        getUrl: getFrameUrl,
+      };
+}
+
+function buildHeroTimeline(
+  section: HTMLElement,
+  pin: HTMLDivElement,
+  headline: HTMLDivElement | null,
+  config: ReturnType<typeof getHeroScrollConfig>,
+  progressRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const scrollRange = clampedScrollRange(config.scrollVh);
+  const headlineFadePortion = 0.35 / (config.scrollVh / 100);
+
+  const heroWords = gsap.utils.toArray<HTMLElement>(".hero-word", section);
+
+  gsap.set(heroWords, { autoAlpha: 0, y: 60 });
+  gsap.to(heroWords, {
+    autoAlpha: 1,
+    y: 0,
+    duration: 1,
+    stagger: 0.1,
+    ease: "power4.out",
+    delay: 0.15,
+  });
+
+  const tl = gsap.timeline({
+    scrollTrigger: {
+      trigger: section,
+      ...scrollRange,
+      pin,
+      pinSpacing: true,
+      scrub: config.scrub,
+      anticipatePin: 1,
+      fastScrollEnd: config.isMobile,
+      invalidateOnRefresh: true,
+      ...(config.pinType ? { pinType: config.pinType } : {}),
+      onUpdate: (self) => {
+        if (progressRef.current) {
+          progressRef.current.style.transform = `scale3d(${self.progress}, 1, 1)`;
+        }
+      },
+    },
+  });
+
+  if (headline) {
+    tl.to(
+      headline,
+      {
+        autoAlpha: 0,
+        y: -36,
+        ease: "power2.out",
+        duration: headlineFadePortion,
+      },
+      0,
+    );
+  }
+
+  return tl;
 }
 
 export function HeroScroll() {
@@ -78,18 +167,173 @@ export function HeroScroll() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
   const frameIndexRef = useRef(0);
-  const isMobileRef = useRef(false);
+  const configRef = useRef(getHeroScrollConfig());
   const [ready, setReady] = useState(false);
   const [loadPct, setLoadPct] = useState(0);
   const [staticHero, setStaticHero] = useState(false);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    registerGsapPlugins();
 
     let cancelled = false;
-    let resizeHandler: (() => void) | null = null;
-    let resizeObserver: ResizeObserver | null = null;
     let gsapCtx: gsap.Context | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let onResize: (() => void) | null = null;
+    const debouncedRefresh = createDebouncedScrollRefresh(200);
+
+    const initFramesHero = async (
+      config: ReturnType<typeof getHeroScrollConfig>,
+      saveData: boolean,
+      source: FrameSource,
+    ) => {
+      const { total, getUrl } = getSourceConfig(source);
+      const sequence = buildFrameSequence(config.frameStep, total, getUrl);
+
+      const first = await preloadFrame(sequence[0], getUrl);
+      if (cancelled) return;
+
+      imagesRef.current = [first];
+      setLoadPct(Math.round((1 / sequence.length) * 100));
+
+      const canvas = canvasRef.current;
+      if (canvas) {
+        fitCanvas(
+          canvas,
+          first,
+          getCanvasDpr(config.isMobile),
+          config.fitMode,
+          config.focalY,
+          config.fitScale,
+        );
+      }
+
+      setReady(true);
+
+      const draw = (index: number) => {
+        const frameNum = sequence[index];
+        const canvasEl = canvasRef.current;
+        if (frameNum === undefined || !canvasEl) return;
+
+        let img = imagesRef.current[index];
+        if (!img?.complete) {
+          void preloadFrame(frameNum, getUrl)
+            .then((loaded) => {
+              if (cancelled) return;
+              imagesRef.current[index] = loaded;
+              if (frameIndexRef.current === index) {
+                const cfg = configRef.current;
+                fitCanvas(
+                  canvasEl,
+                  loaded,
+                  getCanvasDpr(cfg.isMobile),
+                  cfg.fitMode,
+                  cfg.focalY,
+                  cfg.fitScale,
+                );
+              }
+            })
+            .catch(() => {});
+          img = imagesRef.current[frameIndexRef.current] ?? imagesRef.current[0];
+        }
+
+        if (!img?.complete) return;
+
+        const cfg = configRef.current;
+        fitCanvas(
+          canvasEl,
+          img,
+          getCanvasDpr(cfg.isMobile),
+          cfg.fitMode,
+          cfg.focalY,
+          cfg.fitScale,
+        );
+      };
+
+      const scheduleDraw = createRafScheduler((index: number) => {
+        frameIndexRef.current = index;
+        draw(index);
+      });
+
+      const rest = sequence.slice(1);
+      const priority = rest.slice(0, 20);
+      const background = rest.slice(20);
+
+      await Promise.all(
+        priority.map(async (frameNum, idx) => {
+          const img = await preloadFrame(frameNum, getUrl);
+          if (cancelled) return;
+          imagesRef.current[idx + 1] = img;
+        }),
+      ).catch(() => {});
+
+      if (!cancelled) {
+        setLoadPct(Math.round(((Math.min(21, sequence.length)) / sequence.length) * 100));
+      }
+
+      background.forEach((frameNum, idx) => {
+        preloadFrame(frameNum, getUrl)
+          .then((img) => {
+            if (cancelled) return;
+            imagesRef.current[idx + 21] = img;
+            const loaded = imagesRef.current.filter(Boolean).length;
+            setLoadPct(Math.round((loaded / sequence.length) * 100));
+          })
+          .catch(() => {});
+      });
+
+      onResize = () => {
+        configRef.current = getHeroScrollConfig(window.innerWidth, saveData);
+        draw(frameIndexRef.current);
+        debouncedRefresh();
+      };
+
+      window.addEventListener("resize", onResize, { passive: true });
+
+      const canvasParent = canvasRef.current?.parentElement;
+      if (canvasParent && typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver(() => {
+          draw(frameIndexRef.current);
+        });
+        resizeObserver.observe(canvasParent);
+      }
+
+      if (cancelled) return;
+
+      gsapCtx = gsap.context(() => {
+        const section = sectionRef.current;
+        const pin = pinRef.current;
+        const headline = headlineRef.current;
+        if (!section || !pin) return;
+
+        const state = { frame: 0 };
+
+        const tl = buildHeroTimeline(
+          section,
+          pin,
+          headline,
+          config,
+          progressRef,
+        );
+
+        tl.to(
+          state,
+          {
+            frame: sequence.length - 1,
+            ease: "none",
+            duration: 1,
+            onUpdate: () => {
+              const index = Math.round(state.frame);
+              if (index !== frameIndexRef.current) {
+                scheduleDraw(index);
+              }
+            },
+          },
+          0,
+        );
+      }, sectionRef);
+
+      requestAnimationFrame(() => debouncedRefresh());
+    };
 
     const init = async () => {
       const saveData =
@@ -98,139 +342,40 @@ export function HeroScroll() {
         (navigator as Navigator & { connection?: { saveData?: boolean } })
           .connection?.saveData === true;
 
-      const isMobile =
-        typeof window !== "undefined" && window.innerWidth < 768;
-      isMobileRef.current = isMobile;
-      const reducedMotion = prefersReducedMotion();
-      const canvasDpr = getCanvasDpr(isMobile);
-      const fitMode = isMobile ? "contain" : "cover";
+      const config = getHeroScrollConfig(window.innerWidth, saveData);
+      configRef.current = config;
+      const source = getFrameSource(config.isMobile);
+      const { total, getUrl } = getSourceConfig(source);
 
-      if (reducedMotion) {
+      if (config.reducedMotion) {
         setStaticHero(true);
-        const lastFrame = await preloadFrame(TOTAL_SOURCE_FRAMES);
+        const lastFrame = await preloadFrame(total, getUrl);
         if (cancelled) return;
 
         imagesRef.current = [lastFrame];
         const canvas = canvasRef.current;
         if (canvas) {
-          fitCanvas(canvas, lastFrame, canvasDpr, fitMode);
+          fitCanvas(
+            canvas,
+            lastFrame,
+            getCanvasDpr(config.isMobile),
+            config.fitMode,
+            config.focalY,
+            config.fitScale,
+          );
         }
         setReady(true);
         return;
       }
 
-      const step = getFrameStep(isMobile, saveData);
-      const sequence = buildFrameSequence(step);
-
-      const first = await preloadFrame(sequence[0]);
-      if (cancelled) return;
-
-      imagesRef.current = [first];
-      setLoadPct(Math.round((1 / sequence.length) * 100));
-
-      const canvas = canvasRef.current;
-      if (canvas) {
-        fitCanvas(canvas, first, canvasDpr, fitMode);
-      }
-
-      setReady(true);
-      requestAnimationFrame(() => ScrollTrigger.refresh());
-
-      const rest = sequence.slice(1);
-      rest.forEach((frameNum, idx) => {
-        preloadFrame(frameNum)
-          .then((img) => {
-            if (cancelled) return;
-            imagesRef.current[idx + 1] = img;
-            setLoadPct(
-              Math.round(((idx + 2) / sequence.length) * 100),
-            );
-          })
-          .catch(() => {});
-      });
-
-      const draw = (index: number) => {
-        const img = imagesRef.current[index];
-        const canvasEl = canvasRef.current;
-        if (!img?.complete || !canvasEl) return;
-        const mode = isMobileRef.current ? "contain" : "cover";
-        const dpr = getCanvasDpr(isMobileRef.current);
-        fitCanvas(canvasEl, img, dpr, mode);
-      };
-
-      resizeHandler = () => {
-        isMobileRef.current = window.innerWidth < 768;
-        draw(frameIndexRef.current);
-      };
-      window.addEventListener("resize", resizeHandler);
-
-      const canvasParent = canvasRef.current?.parentElement;
-      if (canvasParent && typeof ResizeObserver !== "undefined") {
-        resizeObserver = new ResizeObserver(() =>
-          draw(frameIndexRef.current),
-        );
-        resizeObserver.observe(canvasParent);
-      }
-
-      gsapCtx = gsap.context(() => {
-        const state = { frame: 0 };
-        const scrollEnd = isMobile ? "+=150%" : "+=180%";
-
-        gsap.to(state, {
-          frame: sequence.length - 1,
-          ease: "none",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top top",
-            end: scrollEnd,
-            pin: pinRef.current,
-            scrub: isMobile ? 1 : 0.6,
-            anticipatePin: 1,
-            fastScrollEnd: isMobile,
-            invalidateOnRefresh: true,
-            onUpdate: (self) => {
-              if (progressRef.current) {
-                progressRef.current.style.transform = `scaleX(${self.progress})`;
-              }
-            },
-          },
-          onUpdate: () => {
-            const index = Math.round(state.frame);
-            if (index !== frameIndexRef.current) {
-              frameIndexRef.current = index;
-              draw(index);
-            }
-          },
-        });
-
-        gsap.to(headlineRef.current, {
-          opacity: 0,
-          y: -36,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top top",
-            end: "+=35%",
-            scrub: true,
-          },
-        });
-
-        gsap.from(".hero-word", {
-          y: 60,
-          opacity: 0,
-          duration: 1,
-          stagger: 0.1,
-          ease: "power4.out",
-          delay: 0.15,
-        });
-      }, sectionRef);
+      await initFramesHero(config, saveData, source);
     };
 
     init();
 
     return () => {
       cancelled = true;
-      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (onResize) window.removeEventListener("resize", onResize);
       resizeObserver?.disconnect();
       gsapCtx?.revert();
     };
@@ -244,11 +389,11 @@ export function HeroScroll() {
     <section
       ref={sectionRef}
       id="inicio"
-      className={`relative bg-cinema-black ${staticHero ? "min-h-0" : "min-h-[280vh]"}`}
+      className={`relative bg-cinema-black ${staticHero ? "min-h-[100svh] supports-[height:100dvh]:min-h-[100dvh]" : ""}`}
     >
       <div
         ref={pinRef}
-        className="relative h-[100dvh] min-h-[100svh] w-full overflow-hidden"
+        className="hero-pin relative h-[100svh] w-full overflow-hidden supports-[height:100dvh]:h-[100dvh]"
       >
         <div
           className="pointer-events-none absolute inset-0 hidden bg-cover bg-center opacity-30 md:block"
@@ -256,10 +401,10 @@ export function HeroScroll() {
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,0,51,0.12)_0%,transparent_60%)]" />
 
-        <div className="absolute inset-0 z-10">
+        <div className="absolute inset-0 z-10 overflow-hidden">
           <canvas
             ref={canvasRef}
-            className={`block h-full w-full transition-opacity duration-500 ${
+            className={`hero-canvas block h-full w-full transition-opacity duration-500 ${
               ready ? "opacity-100" : "opacity-0"
             }`}
             aria-label="Animación de hamburguesa armándose al hacer scroll"
@@ -290,7 +435,7 @@ export function HeroScroll() {
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hero-word mt-4 inline-flex w-fit items-center rounded-full border border-neon bg-neon/10 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white neon-border transition hover:bg-neon sm:mt-6 sm:px-6 sm:py-3 sm:text-sm"
+            className="hero-word mt-4 hidden w-fit items-center rounded-full border border-neon bg-neon/10 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white neon-border transition hover:bg-neon md:mt-6 md:inline-flex md:px-6 md:py-3 md:text-sm"
           >
             Ordenar por WhatsApp
           </a>
@@ -309,8 +454,8 @@ export function HeroScroll() {
               <div className="h-[2px] overflow-hidden rounded-full bg-white/10">
                 <div
                   ref={progressRef}
-                  className="h-full origin-left bg-neon shadow-[0_0_12px_#ff0033]"
-                  style={{ transform: "scaleX(0)" }}
+                  className="hero-progress h-full origin-left bg-neon shadow-[0_0_12px_#ff0033]"
+                  style={{ transform: "scale3d(0, 1, 1)" }}
                 />
               </div>
             </>
