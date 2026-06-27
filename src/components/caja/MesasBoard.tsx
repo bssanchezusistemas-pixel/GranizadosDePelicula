@@ -60,8 +60,7 @@ export function MesasBoard() {
   }
 
   const mesas = ubicaciones.filter((u) => u.tipo === "mesa");
-  const bancos = ubicaciones.filter((u) => u.tipo === "banco");
-  const barra = ubicaciones.filter((u) => u.tipo === "barra");
+  const pasillos = ubicaciones.filter((u) => u.tipo === "pasillo");
   const ocupadas = ubicaciones.filter((u) => u.estado === "ocupada").length;
 
   if (loading) {
@@ -129,14 +128,8 @@ export function MesasBoard() {
         onLiberar={abrirLiberar}
       />
       <GrupoMesas
-        titulo="Bancos"
-        items={bancos}
-        liberandoId={liberandoId}
-        onLiberar={abrirLiberar}
-      />
-      <GrupoMesas
-        titulo="Barra"
-        items={barra}
+        titulo="Pasillos"
+        items={pasillos}
         liberandoId={liberandoId}
         onLiberar={abrirLiberar}
       />

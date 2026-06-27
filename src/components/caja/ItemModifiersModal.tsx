@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatCOP } from "@/lib/currency";
 import { SIN_INGREDIENTE_OPCIONES } from "@/data/caja";
 import type { ItemPedidoCarrito } from "@/data/caja";
 import type { MenuCategoryId } from "@/data/menu";
+
+const PRESETS = new Set<string>(SIN_INGREDIENTE_OPCIONES);
 
 interface PendingItem {
   productoId: string;
@@ -28,7 +30,17 @@ export function ItemModifiersModal({
   const [notasExtra, setNotasExtra] = useState("");
   const [libreSin, setLibreSin] = useState("");
 
+  useEffect(() => {
+    if (item) {
+      setSinIngredientes([]);
+      setNotasExtra("");
+      setLibreSin("");
+    }
+  }, [item?.productoId, item?.nombre]);
+
   if (!item) return null;
+
+  const personalizados = sinIngredientes.filter((s) => !PRESETS.has(s));
 
   function toggleSin(opcion: string) {
     setSinIngredientes((prev) =>
@@ -45,15 +57,24 @@ export function ItemModifiersModal({
     setLibreSin("");
   }
 
+  function quitarSin(opcion: string) {
+    setSinIngredientes((prev) => prev.filter((x) => x !== opcion));
+  }
+
   function handleConfirm() {
     if (!item) return;
+    const finales = [...sinIngredientes];
+    const libre = libreSin.trim();
+    if (libre && !finales.includes(libre)) {
+      finales.push(libre);
+    }
     onConfirm({
       productoId: item.productoId,
       nombre: item.nombre,
       cantidad: 1,
       precioUnitario: item.precioUnitario,
       categoriaId: item.categoriaId,
-      sinIngredientes,
+      sinIngredientes: finales,
       notasExtra: notasExtra.trim() || undefined,
     });
     setSinIngredientes([]);
@@ -119,11 +140,32 @@ export function ItemModifiersModal({
             <button
               type="button"
               onClick={agregarLibreSin}
-              className="rounded-lg border border-white/10 px-3 text-xs font-bold text-white/60 hover:border-white/30"
+              disabled={!libreSin.trim()}
+              className="rounded-lg border border-white/10 px-3 text-xs font-bold text-white/60 hover:border-neon hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               +
             </button>
           </div>
+          {personalizados.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {personalizados.map((opcion) => (
+                <button
+                  key={opcion}
+                  type="button"
+                  onClick={() => quitarSin(opcion)}
+                  className="flex items-center gap-1.5 rounded-full border border-amber-600/50 bg-amber-900/25 px-3 py-1.5 text-[11px] font-bold text-amber-200"
+                >
+                  {opcion}
+                  <span className="text-amber-400/80">×</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {libreSin.trim() && !personalizados.includes(libreSin.trim()) && (
+            <p className="mt-1.5 text-[10px] text-white/40">
+              Pulsa + o Enter para agregar, o confirma y se incluirá al carrito.
+            </p>
+          )}
         </div>
 
         <div className="mb-6">

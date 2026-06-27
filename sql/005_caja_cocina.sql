@@ -11,10 +11,10 @@ create table if not exists public.meseros (
   creado_en timestamptz not null default now()
 );
 
--- Ubicaciones: mesas, bancos, barra
+-- Ubicaciones: mesas y pasillos
 create table if not exists public.ubicaciones (
   id uuid primary key default gen_random_uuid(),
-  tipo text not null check (tipo in ('mesa', 'banco', 'barra')),
+  tipo text not null check (tipo in ('mesa', 'pasillo')),
   numero integer,
   label text not null unique,
   estado text not null default 'libre' check (estado in ('libre', 'ocupada')),
@@ -33,7 +33,7 @@ create table if not exists public.pedidos_caja (
   direccion text,
   forma_pago text not null check (forma_pago in ('efectivo', 'transferencia')),
   total numeric(10,0) not null default 0,
-  estado text not null default 'abierto' check (estado in ('abierto', 'cerrado')),
+  estado text not null default 'abierto' check (estado in ('abierto', 'cerrado', 'cancelado')),
   paga_con numeric(10,0),
   devuelta numeric(10,0),
   comision_pagada_por text check (comision_pagada_por in ('cliente', 'restaurante')),
@@ -81,15 +81,10 @@ select 'mesa', n, 'Mesa ' || n
 from generate_series(1, 16) as n
 on conflict (label) do nothing;
 
--- 3 bancos afuera
+-- 3 pasillos
 insert into public.ubicaciones (tipo, numero, label)
-select 'banco', n, 'Banco ' || n
+select 'pasillo', n, 'Pasillo ' || n
 from generate_series(1, 3) as n
-on conflict (label) do nothing;
-
--- Barra
-insert into public.ubicaciones (tipo, numero, label)
-values ('barra', null, 'Barra')
 on conflict (label) do nothing;
 
 -- Realtime para cocina

@@ -4,10 +4,10 @@ import type { FormaPago } from "@/data/domicilios";
 /** Dónde se entrega el pedido tomado en caja. */
 export type TipoEntrega = "mesa" | "recoger" | "domicilio";
 
-export type EstadoPedidoCaja = "abierto" | "cerrado";
+export type EstadoPedidoCaja = "abierto" | "cerrado" | "cancelado";
 export type EstadoUbicacion = "libre" | "ocupada";
 export type EstadoItemCocina = "pendiente" | "listo";
-export type TipoUbicacion = "mesa" | "banco" | "barra";
+export type TipoUbicacion = "mesa" | "pasillo";
 export type TipoComision = "cliente" | "restaurante";
 
 export const PEDIDO_INICIAL = 5750;
@@ -219,6 +219,5 @@ export const SIN_INGREDIENTE_OPCIONES = [
   "Sin piña",
   "Sin cebolla",
   "Sin queso",
-  "Sin tocineta",
   "Sin maíz",
 ] as const;

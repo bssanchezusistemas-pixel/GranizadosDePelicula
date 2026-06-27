@@ -242,6 +242,7 @@ export default function RegistroPage() {
             <TopProductsCard productos={cierre.topProductos} />
             <SalesTable
               pedidos={pedidos}
+              onPedidoCancelado={cargar}
               titulo={
                 vista === "hoy"
                   ? "Ventas de hoy — detalle"

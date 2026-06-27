@@ -1,4 +1,5 @@
 export type MenuCategoryId =
+  | "helados"
   | "cholaos"
   | "raspados"
   | "boom"
@@ -56,9 +57,9 @@ export const BUSINESS = {
 
 export const MENU_CATEGORIES: MenuCategory[] = [
   {
-    id: "cholaos",
-    label: "Cholaos",
-    tagline: "Fruta, hielo y mucho sabor",
+    id: "helados",
+    label: "Boom, Raspados, Cholados y Granizados",
+    tagline: "Frío, dulce y con sabor de película",
     accentColor: "#F28131",
     items: [
       {
@@ -86,14 +87,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         description: "Cholao clásico de la casa.",
         price: 8000,
       },
-    ],
-  },
-  {
-    id: "raspados",
-    label: "Raspados",
-    tagline: "Hielo raspado bien frío",
-    accentColor: "#F28131",
-    items: [
       {
         id: "rasp-con-helado",
         name: "Raspao con Helado",
@@ -112,14 +105,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
           { label: "Grande", price: 6000 },
         ],
       },
-    ],
-  },
-  {
-    id: "boom",
-    label: "Boom",
-    tagline: "Granizados especiales",
-    accentColor: "#F28131",
-    items: [
       {
         id: "boom-oreo-milo",
         name: "Boom de Oreo o Milo",
@@ -138,14 +123,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         description: "Granizado boom sabor chocolate.",
         price: 17000,
       },
-    ],
-  },
-  {
-    id: "granizados",
-    label: "Granizados",
-    tagline: "Sabor de película en cada vaso",
-    accentColor: "#F28131",
-    items: [
       {
         id: "gran-oreo",
         name: "Granizado de Oreo",
@@ -711,4 +688,21 @@ export function formatCartLineName(
 
 export function buildWhatsAppUrl(message: string, phone = BUSINESS.primaryWhatsApp) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
+
+export interface MenuProductRef {
+  id: string;
+  name: string;
+  categoriaId: MenuCategoryId;
+}
+
+/** Lista plana de productos para buscadores y filtros. */
+export function getAllMenuProducts(): MenuProductRef[] {
+  return MENU_CATEGORIES.flatMap((cat) =>
+    cat.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      categoriaId: cat.id,
+    })),
+  );
 }

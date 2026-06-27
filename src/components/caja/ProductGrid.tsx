@@ -20,6 +20,13 @@ interface PendingProduct {
   categoriaId?: MenuCategoryId;
 }
 
+interface FlatProduct {
+  item: MenuItem;
+  categoriaId: MenuCategoryId;
+  accentColor: string;
+  categoryLabel: string;
+}
+
 interface ProductGridProps {
   onAdd: (item: ItemPedidoCarrito) => void;
 }
@@ -29,44 +36,126 @@ export function ProductGrid({ onAdd }: ProductGridProps) {
     MENU_CATEGORIES[0].id,
   );
   const [pending, setPending] = useState<PendingProduct | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+
+  const todosLosProductos = useMemo<FlatProduct[]>(
+    () =>
+      MENU_CATEGORIES.flatMap((cat) =>
+        cat.items.map((item) => ({
+          item,
+          categoriaId: cat.id,
+          accentColor: cat.accentColor ?? "#ff0033",
+          categoryLabel: cat.label,
+        })),
+      ),
+    [],
+  );
+
+  const resultadosBusqueda = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return [];
+    return todosLosProductos.filter(
+      (p) =>
+        p.item.name.toLowerCase().includes(q) ||
+        p.item.description.toLowerCase().includes(q),
+    );
+  }, [busqueda, todosLosProductos]);
+
+  const hayBusqueda = busqueda.trim().length > 0;
 
   return (
     <div>
       <nav
         aria-label="Categorías"
-        className="sticky top-[61px] z-30 -mx-4 mb-6 border-b border-white/5 bg-cinema-black/95 backdrop-blur-md sm:top-[65px]"
+        className="sticky top-[61px] z-30 -mx-4 mb-4 border-b border-white/5 bg-cinema-black/95 backdrop-blur-md sm:top-[65px]"
       >
-        <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 py-2.5 sm:flex-wrap sm:overflow-visible sm:py-3">
-          {MENU_CATEGORIES.map((cat) => {
-            const activa = categoriaActiva === cat.id;
-            return (
+        <div className="px-4 pt-2.5 sm:pt-3">
+          <div className="relative mb-2.5">
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar producto..."
+              className="w-full rounded-full border border-white/10 bg-cinema-gray py-2.5 pl-4 pr-10 text-sm text-white placeholder:text-white/35 focus:border-neon focus:outline-none"
+            />
+            {hayBusqueda && (
               <button
-                key={cat.id}
                 type="button"
-                onClick={() => setCategoriaActiva(cat.id)}
-                aria-current={activa ? "true" : undefined}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[10px] uppercase tracking-[0.15em] transition sm:px-5 sm:py-2.5 sm:text-[11px] ${
-                  activa
-                    ? "border-neon bg-neon/15 text-white neon-border"
-                    : "border-white/10 text-white/60 hover:border-white/30"
-                }`}
+                onClick={() => setBusqueda("")}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-lg text-white/40 hover:text-white"
               >
-                {cat.label}
+                ×
               </button>
-            );
-          })}
+            )}
+          </div>
         </div>
+        {!hayBusqueda && (
+          <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 pb-2.5 sm:flex-wrap sm:overflow-visible sm:pb-3">
+            {MENU_CATEGORIES.map((cat) => {
+              const activa = categoriaActiva === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategoriaActiva(cat.id)}
+                  aria-current={activa ? "true" : undefined}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[10px] uppercase tracking-[0.15em] transition sm:px-5 sm:py-2.5 sm:text-[11px] ${
+                    activa
+                      ? "border-neon bg-neon/15 text-white neon-border"
+                      : "border-white/10 text-white/60 hover:border-white/30"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       <div className="space-y-10">
-        {MENU_CATEGORIES.filter((cat) => cat.id === categoriaActiva).map(
-          (cat) => (
-            <CategoryBlock
-              key={cat.id}
-              category={cat}
-              onRequestAdd={setPending}
-            />
-          ),
+        {hayBusqueda ? (
+          <section>
+            <div className="mb-5 border-b border-white/10 pb-3">
+              <h3 className="font-[family-name:var(--font-display)] text-xl uppercase text-white sm:text-2xl">
+                Resultados
+              </h3>
+              <p className="mt-0.5 text-xs text-white/45">
+                {resultadosBusqueda.length === 0
+                  ? "Sin coincidencias"
+                  : `${resultadosBusqueda.length} producto${resultadosBusqueda.length === 1 ? "" : "s"}`}
+              </p>
+            </div>
+            {resultadosBusqueda.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {resultadosBusqueda.map((p) => (
+                  <ProductCard
+                    key={p.item.id}
+                    item={p.item}
+                    categoriaId={p.categoriaId}
+                    accentColor={p.accentColor}
+                    categoryLabel={p.categoryLabel}
+                    onRequestAdd={setPending}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-white/40">
+                Prueba con otro nombre o descripción.
+              </p>
+            )}
+          </section>
+        ) : (
+          MENU_CATEGORIES.filter((cat) => cat.id === categoriaActiva).map(
+            (cat) => (
+              <CategoryBlock
+                key={cat.id}
+                category={cat}
+                onRequestAdd={setPending}
+              />
+            ),
+          )
         )}
       </div>
 
@@ -124,11 +213,13 @@ function ProductCard({
   item,
   categoriaId,
   accentColor,
+  categoryLabel,
   onRequestAdd,
 }: {
   item: MenuItem;
   categoriaId: MenuCategoryId;
   accentColor: string;
+  categoryLabel?: string;
   onRequestAdd: (item: PendingProduct) => void;
 }) {
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>(
@@ -167,9 +258,16 @@ function ProductCard({
       />
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-2 flex items-start justify-between gap-3">
-          <h4 className="font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white">
-            {item.name}
-          </h4>
+          <div>
+            {categoryLabel && (
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-white/35">
+                {categoryLabel}
+              </p>
+            )}
+            <h4 className="font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white">
+              {item.name}
+            </h4>
+          </div>
           <span
             className="shrink-0 rounded-md px-2.5 py-1 font-[family-name:var(--font-display)] text-sm text-white"
             style={{ backgroundColor: accentColor }}

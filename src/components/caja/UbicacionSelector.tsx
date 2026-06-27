@@ -14,8 +14,7 @@ export function UbicacionSelector({
   onSelect,
 }: UbicacionSelectorProps) {
   const mesas = ubicaciones.filter((u) => u.tipo === "mesa");
-  const bancos = ubicaciones.filter((u) => u.tipo === "banco");
-  const barra = ubicaciones.filter((u) => u.tipo === "barra");
+  const pasillos = ubicaciones.filter((u) => u.tipo === "pasillo");
 
   return (
     <div className="space-y-4">
@@ -26,14 +25,8 @@ export function UbicacionSelector({
         onSelect={onSelect}
       />
       <UbicacionGrupo
-        titulo="Bancos"
-        items={bancos}
-        seleccionadaId={seleccionadaId}
-        onSelect={onSelect}
-      />
-      <UbicacionGrupo
-        titulo="Barra"
-        items={barra}
+        titulo="Pasillos"
+        items={pasillos}
         seleccionadaId={seleccionadaId}
         onSelect={onSelect}
       />
@@ -81,7 +74,7 @@ function UbicacionGrupo({
                     : "border-white/10 text-white/60 hover:border-white/30"
               }`}
             >
-              {u.label.replace(/^(Mesa|Banco) /, "")}
+              {u.label.replace(/^(Mesa|Pasillo) /, "")}
               {ocupada && !activo && (
                 <span className="ml-1 text-[9px] opacity-70">●</span>
               )}

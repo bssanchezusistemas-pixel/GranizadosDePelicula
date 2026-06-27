@@ -66,7 +66,7 @@ export default function AdminMesasPage() {
               Admin
             </p>
             <h1 className="font-[family-name:var(--font-display)] text-2xl uppercase">
-              Mesas y bancos
+              Mesas y pasillos
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">

@@ -5,7 +5,7 @@ export default function MesasPage() {
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       <div className="mb-6">
         <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-neon">
-          Mesas y bancos
+          Mesas y pasillos
         </p>
         <h1 className="font-[family-name:var(--font-display)] text-2xl uppercase text-white sm:text-3xl">
           Liberar mesas

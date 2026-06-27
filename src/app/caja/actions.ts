@@ -259,18 +259,38 @@ async function nextNumeroPedido(supabase: ReturnType<typeof createServiceClient>
   const fecha = fechaHoyBogota();
   const { inicio, fin } = rangoDiaBogota(fecha);
 
-  const { data, error } = await supabase
-    .from("pedidos_caja")
-    .select("numero_pedido")
-    .gte("creado_en", inicio)
-    .lte("creado_en", fin)
-    .order("numero_pedido", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [
+    { data: maxCaja, error: errCaja },
+    { data: pedidosDom, error: errDom },
+  ] = await Promise.all([
+    supabase
+      .from("pedidos_caja")
+      .select("numero_pedido")
+      .gte("creado_en", inicio)
+      .lte("creado_en", fin)
+      .order("numero_pedido", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("pedidos_domicilio")
+      .select("numero_pedido")
+      .gte("creado_en", inicio)
+      .lte("creado_en", fin),
+  ]);
 
-  if (error) throw new Error(error.message);
-  if (!data) return PEDIDO_INICIAL;
-  return Math.max(PEDIDO_INICIAL, Number(data.numero_pedido) + 1);
+  if (errCaja) throw new Error(errCaja.message);
+  if (errDom) throw new Error(errDom.message);
+
+  const usados: number[] = [PEDIDO_INICIAL - 1];
+  if (maxCaja?.numero_pedido != null) {
+    usados.push(Number(maxCaja.numero_pedido));
+  }
+  for (const row of pedidosDom ?? []) {
+    const n = Number.parseInt(String(row.numero_pedido), 10);
+    if (!Number.isNaN(n)) usados.push(n);
+  }
+
+  return Math.max(PEDIDO_INICIAL, Math.max(...usados) + 1);
 }
 
 function calcularTotalPedido(
@@ -281,10 +301,7 @@ function calcularTotalPedido(
     (s, i) => s + i.precioUnitario * i.cantidad,
     0,
   );
-  if (
-    input.tipoEntrega === "domicilio" &&
-    input.comisionPagadaPor === "cliente"
-  ) {
+  if (input.tipoEntrega === "domicilio") {
     return subtotal + COMISION_DOMICILIO;
   }
   return subtotal;
@@ -334,7 +351,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   }
 
   if (input.tipoEntrega === "mesa" && !input.ubicacionId) {
-    throw new Error("Selecciona una mesa, banco o la barra.");
+    throw new Error("Selecciona una mesa o pasillo.");
   }
   if (input.tipoEntrega === "recoger" && !input.nombreRecoge?.trim()) {
     throw new Error("Escribe el nombre de quien recoge.");
@@ -342,12 +359,12 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   if (input.tipoEntrega === "domicilio" && !input.direccion?.trim()) {
     throw new Error("Escribe la dirección del domicilio.");
   }
-  if (input.tipoEntrega === "domicilio" && !input.comisionPagadaPor) {
-    throw new Error("Indica quién paga la comisión del domicilio.");
-  }
   if (input.tipoEntrega === "domicilio" && !input.domiciliarioId) {
     throw new Error("Selecciona un repartidor con jornada iniciada.");
   }
+
+  const comisionPagadaPor =
+    input.tipoEntrega === "domicilio" ? ("cliente" as const) : null;
 
   const total = calcularTotalPedido(input, items);
   const incrementoItems = items.reduce(
@@ -454,8 +471,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
         estado: "cerrado",
         paga_con: input.formaPago === "efectivo" ? pagaCon : null,
         devuelta: input.formaPago === "efectivo" ? devuelta : null,
-        comision_pagada_por:
-          input.tipoEntrega === "domicilio" ? input.comisionPagadaPor : null,
+        comision_pagada_por: comisionPagadaPor,
         cerrado_en: new Date().toISOString(),
       })
       .select("id, numero_pedido")
@@ -473,6 +489,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
       );
 
       if (!turno) {
+        await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
         throw new Error(
           "El repartidor seleccionado no tiene jornada iniciada hoy.",
         );
@@ -485,44 +502,53 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
         trabajaSinBase(baseEfectivo) &&
         (!pagaCon || pagaCon < subtotal)
       ) {
+        await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
         throw new Error(
           "Sin base de cambio debes registrar con cuánto paga el cliente.",
         );
       }
 
       const numeroStr = String(pedido.numero_pedido);
-      const { data: duplicado } = await supabase
+      const { data: domExistente } = await supabase
         .from("pedidos_domicilio")
-        .select("id")
+        .select("id, pedido_caja_id")
         .eq("numero_pedido", numeroStr)
         .maybeSingle();
 
-      if (duplicado) {
-        throw new Error(
-          `El pedido #${numeroStr} ya está registrado en domicilios.`,
-        );
+      if (domExistente) {
+        if (domExistente.pedido_caja_id === pedidoId) {
+          // Reintento tras fallo parcial: el vínculo domicilio ya existe.
+        } else {
+          await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
+          throw new Error(
+            `El pedido #${numeroStr} ya está registrado en domicilios. Intenta de nuevo; se asignará el siguiente número libre.`,
+          );
+        }
+      } else {
+        const filaDomicilio: Record<string, unknown> = {
+          numero_pedido: numeroStr,
+          domiciliario_id: input.domiciliarioId,
+          turno_id: turno.id,
+          canal: "local",
+          items: resumirItems(items),
+          direccion: input.direccion?.trim() ?? null,
+          valor_pedido: subtotal,
+          forma_pago: input.formaPago,
+          paga_con: input.formaPago === "efectivo" ? pagaCon : null,
+          devuelta,
+          estado: "pendiente",
+          pedido_caja_id: pedidoId,
+        };
+
+        const { error: errDom } = await supabase
+          .from("pedidos_domicilio")
+          .insert(filaDomicilio);
+
+        if (errDom) {
+          await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
+          throw new Error(errDom.message);
+        }
       }
-
-      const filaDomicilio: Record<string, unknown> = {
-        numero_pedido: numeroStr,
-        domiciliario_id: input.domiciliarioId,
-        turno_id: turno.id,
-        canal: "local",
-        items: resumirItems(items),
-        direccion: input.direccion?.trim() ?? null,
-        valor_pedido: subtotal,
-        forma_pago: input.formaPago,
-        paga_con: input.formaPago === "efectivo" ? pagaCon : null,
-        devuelta,
-        estado: "pendiente",
-        pedido_caja_id: pedidoId,
-      };
-
-      const { error: errDom } = await supabase
-        .from("pedidos_domicilio")
-        .insert(filaDomicilio);
-
-      if (errDom) throw new Error(errDom.message);
 
       await sincronizarTurnoConPedidos(
         supabase,
@@ -548,7 +574,16 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
     .from("pedido_items_caja")
     .insert(filas);
 
-  if (errItems) throw new Error(errItems.message);
+  if (errItems) {
+    if (input.tipoEntrega !== "mesa") {
+      await supabase
+        .from("pedidos_domicilio")
+        .delete()
+        .eq("pedido_caja_id", pedidoId);
+      await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
+    }
+    throw new Error(errItems.message);
+  }
 
   revalidateCaja();
 
@@ -691,6 +726,68 @@ export async function getPedidosPorFechaAction(
   return (data as PedidoCaja[]) ?? [];
 }
 
+export async function cancelarPedidoCajaAction(pedidoId: string) {
+  await requireAdmin();
+  const supabase = createServiceClient();
+
+  const { data: pedido, error: errPed } = await supabase
+    .from("pedidos_caja")
+    .select("id, estado, tipo_entrega, ubicacion_id")
+    .eq("id", pedidoId)
+    .single();
+
+  if (errPed) throw new Error(errPed.message);
+  if (pedido.estado === "cancelado") {
+    throw new Error("Este pedido ya está cancelado.");
+  }
+
+  if (pedido.estado === "abierto" && pedido.ubicacion_id) {
+    const { error: errUb } = await supabase
+      .from("ubicaciones")
+      .update({ estado: "libre", pedido_abierto_id: null })
+      .eq("id", pedido.ubicacion_id)
+      .eq("pedido_abierto_id", pedidoId);
+
+    if (errUb) throw new Error(errUb.message);
+  }
+
+  const { error: errUpd } = await supabase
+    .from("pedidos_caja")
+    .update({
+      estado: "cancelado",
+      cerrado_en: new Date().toISOString(),
+    })
+    .eq("id", pedidoId);
+
+  if (errUpd) throw new Error(errUpd.message);
+
+  const { data: domicilio } = await supabase
+    .from("pedidos_domicilio")
+    .select("id, domiciliario_id")
+    .eq("pedido_caja_id", pedidoId)
+    .maybeSingle();
+
+  if (domicilio) {
+    const { error: errDom } = await supabase
+      .from("pedidos_domicilio")
+      .update({ estado: "cancelado" })
+      .eq("id", domicilio.id);
+
+    if (errDom) throw new Error(errDom.message);
+
+    if (domicilio.domiciliario_id) {
+      await sincronizarTurnoConPedidos(
+        supabase,
+        domicilio.domiciliario_id,
+        fechaHoyBogota(),
+      );
+    }
+  }
+
+  revalidateCaja();
+  revalidatePath("/caja/registro");
+}
+
 export async function getResumenSemanalCajaAction(
   fechaReferencia?: string,
 ): Promise<ResumenSemanalCaja> {
@@ -723,6 +820,7 @@ export async function getResumenSemanalCajaAction(
   }
 
   for (const row of data ?? []) {
+    if (row.estado === "cancelado") continue;
     const fecha = fechaDesdeIsoBogota(row.creado_en as string);
     const bucket = porDia.get(fecha);
     if (!bucket) continue;
@@ -795,7 +893,7 @@ export async function getCierreDiarioCompletoAction(
     supabase.from("turnos").select("*").eq("fecha", fecha),
     supabase
       .from("pedidos_caja")
-      .select("id")
+      .select("id, estado")
       .gte("creado_en", inicio)
       .lte("creado_en", fin),
   ]);
@@ -806,7 +904,9 @@ export async function getCierreDiarioCompletoAction(
   if (errTurnos) throw new Error(errTurnos.message);
   if (errIds) throw new Error(errIds.message);
 
-  const ids = (pedidosIds ?? []).map((p) => p.id as string);
+  const ids = (pedidosIds ?? [])
+    .filter((p) => p.estado !== "cancelado")
+    .map((p) => p.id as string);
   const items: { nombre: string; cantidad: number; precio_unitario: number }[] =
     [];
 
@@ -824,7 +924,7 @@ export async function getCierreDiarioCompletoAction(
     }
   }
 
-  const pedidos = pedidosCaja ?? [];
+  const pedidos = (pedidosCaja ?? []).filter((p) => p.estado !== "cancelado");
   const cerrados = pedidos.filter((p) => p.estado === "cerrado");
   const totalCaja = cerrados.reduce((s, p) => s + Number(p.total), 0);
   const efectivoCaja = cerrados

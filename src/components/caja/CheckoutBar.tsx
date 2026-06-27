@@ -9,10 +9,8 @@ import {
 import {
   COMISION_DOMICILIO,
   FORMA_PAGO_LABEL,
-  TIPO_COMISION_LABEL,
   TIPO_ENTREGA_LABEL,
   type DomiciliarioConJornada,
-  type TipoComision,
   type TipoEntrega,
 } from "@/data/caja";
 import type { FormaPago } from "@/data/domicilios";
@@ -28,7 +26,6 @@ interface CheckoutBarProps {
   nombreRecoge: string;
   direccion: string;
   pagaCon: number;
-  comisionPagadaPor: TipoComision | null;
   domiciliarios: DomiciliarioConJornada[];
   domiciliarioId: string | null;
   cargandoDomiciliarios: boolean;
@@ -40,14 +37,12 @@ interface CheckoutBarProps {
   onNombreRecoge: (n: string) => void;
   onDireccion: (d: string) => void;
   onPagaCon: (n: number) => void;
-  onComisionPagadaPor: (t: TipoComision) => void;
   onDomiciliario: (id: string | null) => void;
   onConfirmar: () => void;
 }
 
 const TIPOS: TipoEntrega[] = ["mesa", "recoger", "domicilio"];
 const PAGOS: FormaPago[] = ["efectivo", "transferencia"];
-const COMISION_OPCIONES: TipoComision[] = ["cliente", "restaurante"];
 
 export function CheckoutBar({
   total,
@@ -58,7 +53,6 @@ export function CheckoutBar({
   nombreRecoge,
   direccion,
   pagaCon,
-  comisionPagadaPor,
   domiciliarios,
   domiciliarioId,
   cargandoDomiciliarios,
@@ -70,7 +64,6 @@ export function CheckoutBar({
   onNombreRecoge,
   onDireccion,
   onPagaCon,
-  onComisionPagadaPor,
   onDomiciliario,
   onConfirmar,
 }: CheckoutBarProps) {
@@ -81,15 +74,11 @@ export function CheckoutBar({
   const sinUbicacion = esMesa && !ubicacionId;
   const sinNombreRecoge = esRecoger && nombreRecoge.trim().length < 2;
   const direccionInvalida = esDomicilio && direccion.trim().length < 5;
-  const sinComision = esDomicilio && !comisionPagadaPor;
   const sinDomiciliario = esDomicilio && !domiciliarioId;
   const sinJornadaDomicilio =
     esDomicilio && !cargandoDomiciliarios && domiciliarios.length === 0;
 
-  const totalACobrar =
-    esDomicilio && comisionPagadaPor === "cliente"
-      ? total + COMISION_DOMICILIO
-      : total;
+  const totalACobrar = esDomicilio ? total + COMISION_DOMICILIO : total;
 
   const requierePagoEfectivo =
     formaPago === "efectivo" && (esDomicilio || esRecoger);
@@ -101,7 +90,6 @@ export function CheckoutBar({
     !sinUbicacion &&
     !sinNombreRecoge &&
     !direccionInvalida &&
-    !sinComision &&
     !sinDomiciliario &&
     !sinJornadaDomicilio &&
     (!requierePagoEfectivo || pagoEfectivo.ok) &&
@@ -142,7 +130,7 @@ export function CheckoutBar({
       {esMesa && (
         <div className="mb-4">
           <label className="mb-2 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-white/50">
-            Mesa, banco o barra <span className="text-neon">*</span>
+            Mesa o pasillo <span className="text-neon">*</span>
           </label>
           <UbicacionSelector
             ubicaciones={ubicaciones}
@@ -273,31 +261,9 @@ export function CheckoutBar({
       )}
 
       {esDomicilio && (
-        <div className="mb-4">
-          <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
-            Comisión domicilio ({formatCOP(COMISION_DOMICILIO)})
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {COMISION_OPCIONES.map((opcion) => {
-              const activo = comisionPagadaPor === opcion;
-              return (
-                <button
-                  key={opcion}
-                  type="button"
-                  onClick={() => onComisionPagadaPor(opcion)}
-                  aria-pressed={activo}
-                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-3 text-[11px] font-bold uppercase tracking-wide transition ${
-                    activo
-                      ? "border-neon bg-neon/15 text-white"
-                      : "border-white/10 text-white/55 hover:border-white/30"
-                  }`}
-                >
-                  {TIPO_COMISION_LABEL[opcion]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <p className="mb-4 rounded-lg border border-white/8 bg-cinema-black/50 px-4 py-3 text-xs text-white/60">
+          Incluye {formatCOP(COMISION_DOMICILIO)} de domicilio (paga el cliente).
+        </p>
       )}
 
       {requierePagoEfectivo && (
@@ -330,11 +296,9 @@ export function CheckoutBar({
             : sinUbicacion
               ? "Selecciona mesa"
               : sinJornadaDomicilio
-              ? "Inicia jornada en Domicilios"
-              : sinDomiciliario
-                ? "Selecciona repartidor"
-                : sinComision
-                  ? "Elige quién paga comisión"
+                ? "Inicia jornada en Domicilios"
+                : sinDomiciliario
+                  ? "Selecciona repartidor"
                   : `Confirmar pedido · ${formatCOP(totalACobrar)}`}
       </button>
     </div>

@@ -18,7 +18,6 @@ import {
   type DomiciliarioConJornada,
   type ItemPedidoCarrito,
   type PedidoCaja,
-  type TipoComision,
   type TipoEntrega,
   type Ubicacion,
 } from "@/data/caja";
@@ -34,8 +33,6 @@ export default function CajaPage() {
   const [nombreRecoge, setNombreRecoge] = useState("");
   const [direccion, setDireccion] = useState("");
   const [pagaCon, setPagaCon] = useState(0);
-  const [comisionPagadaPor, setComisionPagadaPor] =
-    useState<TipoComision | null>(null);
   const [domiciliarios, setDomiciliarios] = useState<DomiciliarioConJornada[]>(
     [],
   );
@@ -139,7 +136,8 @@ export default function CajaPage() {
         nombreRecoge: nombreRecoge.trim() || undefined,
         direccion: direccion.trim() || undefined,
         pagaCon: pagaCon > 0 ? pagaCon : undefined,
-        comisionPagadaPor: comisionPagadaPor ?? undefined,
+        comisionPagadaPor:
+          tipoEntrega === "domicilio" ? "cliente" : undefined,
         domiciliarioId: domiciliarioId ?? undefined,
       });
 
@@ -148,7 +146,6 @@ export default function CajaPage() {
         setNombreRecoge("");
         setDireccion("");
         setPagaCon(0);
-        setComisionPagadaPor(null);
         setDomiciliarioId(null);
       }
       setUltimoPedido(pedido);
@@ -162,9 +159,7 @@ export default function CajaPage() {
   }
 
   const totalMostrar =
-    tipoEntrega === "domicilio" && comisionPagadaPor === "cliente"
-      ? total + COMISION_DOMICILIO
-      : total;
+    tipoEntrega === "domicilio" ? total + COMISION_DOMICILIO : total;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
@@ -257,7 +252,6 @@ export default function CajaPage() {
               nombreRecoge={nombreRecoge}
               direccion={direccion}
               pagaCon={pagaCon}
-              comisionPagadaPor={comisionPagadaPor}
               carritoVacio={items.length === 0}
               confirmando={confirmando}
               onTipoEntrega={(t) => {
@@ -265,9 +259,8 @@ export default function CajaPage() {
                 if (t !== "mesa") setUbicacionId(null);
                 if (t !== "recoger") setNombreRecoge("");
                 if (t !== "domicilio") {
-                  setDireccion("");
-                  setComisionPagadaPor(null);
-                  setDomiciliarioId(null);
+        setDireccion("");
+        setDomiciliarioId(null);
                 }
                 if (t !== "domicilio" && t !== "recoger") {
                   setPagaCon(0);
@@ -278,7 +271,6 @@ export default function CajaPage() {
               onNombreRecoge={setNombreRecoge}
               onDireccion={setDireccion}
               onPagaCon={setPagaCon}
-              onComisionPagadaPor={setComisionPagadaPor}
               domiciliarios={domiciliarios}
               domiciliarioId={domiciliarioId}
               cargandoDomiciliarios={cargandoDomiciliarios}

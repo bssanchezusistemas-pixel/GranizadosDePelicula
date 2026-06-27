@@ -21,6 +21,7 @@ export function DailySummary({
 }: DailySummaryProps) {
   const cerrados = pedidos.filter((p) => p.estado === "cerrado");
   const abiertos = pedidos.filter((p) => p.estado === "abierto");
+  const activos = pedidos.filter((p) => p.estado !== "cancelado");
   const totalVendido = cerrados.reduce((s, p) => s + Number(p.total), 0);
   const totalEfectivo = cerrados
     .filter((p) => p.forma_pago === "efectivo")
@@ -52,7 +53,7 @@ export function DailySummary({
 
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
         {TIPOS.map((tipo) => {
-          const delTipo = pedidos.filter((p) => p.tipo_entrega === tipo);
+          const delTipo = activos.filter((p) => p.tipo_entrega === tipo);
           const sumaCerrados = delTipo
             .filter((p) => p.estado === "cerrado")
             .reduce((s, p) => s + Number(p.total), 0);
