@@ -128,6 +128,7 @@ async function main() {
   cpSync(path.join(BRIDGE_ROOT, "DIAGNOSTICO.bat"), path.join(RELEASE_DIR, "DIAGNOSTICO.bat"));
   cpSync(path.join(BRIDGE_ROOT, "PROBAR-IMPRESORA.bat"), path.join(RELEASE_DIR, "PROBAR-IMPRESORA.bat"));
   cpSync(path.join(BRIDGE_ROOT, "CORREGIR-ENV.bat"), path.join(RELEASE_DIR, "CORREGIR-ENV.bat"));
+  cpSync(path.join(BRIDGE_ROOT, "PROBAR-COMANDA.bat"), path.join(RELEASE_DIR, "PROBAR-COMANDA.bat"));
   cpSync(
     path.join(BRIDGE_ROOT, "LEEME-CAJA.txt"),
     path.join(RELEASE_DIR, "LEEME-CAJA.txt"),

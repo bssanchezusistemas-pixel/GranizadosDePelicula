@@ -5,8 +5,11 @@ import type {
   PrintResult,
 } from "@/lib/print/types";
 
-const PRINT_TIMEOUT_MS = 8000;
+const PRINT_TIMEOUT_BASE_MS = 8000;
+const PRINT_TIMEOUT_PER_COPY_MS = 6000;
 const HEALTH_TIMEOUT_MS = 2500;
+
+export const MAX_PRINT_COPIES = 5;
 
 async function fetchWithTimeout(
   url: string,
@@ -20,6 +23,25 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function mapFetchError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("aborted") || msg.includes("AbortError")) {
+    return "Tiempo de espera agotado al imprimir. Revisa que el servicio esté activo.";
+  }
+  if (
+    msg.includes("Failed to fetch") ||
+    msg.includes("NetworkError") ||
+    msg.includes("Load failed")
+  ) {
+    return [
+      "El navegador bloqueó la conexión con la impresora local.",
+      "Usa Chrome/Edge en el PC de caja, permite acceso a la red local si aparece el aviso,",
+      "o prueba abrir http://127.0.0.1:9101/print/test en este mismo PC.",
+    ].join(" ");
+  }
+  return `Error de red al imprimir: ${msg}`;
 }
 
 export async function checkPrintBridgeHealth(): Promise<PrintBridgeHealth | null> {
@@ -39,7 +61,14 @@ export async function checkPrintBridgeHealth(): Promise<PrintBridgeHealth | null
 
 export async function sendPrintTicket(
   ticket: OrderTicket,
+  copies = 1,
 ): Promise<PrintResult> {
+  const total = Math.min(
+    MAX_PRINT_COPIES,
+    Math.max(1, Math.floor(copies) || 1),
+  );
+  const timeoutMs =
+    PRINT_TIMEOUT_BASE_MS + (total - 1) * PRINT_TIMEOUT_PER_COPY_MS;
   const base = getPrintBridgeUrl();
   try {
     const res = await fetchWithTimeout(
@@ -47,9 +76,9 @@ export async function sendPrintTicket(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticket }),
+        body: JSON.stringify({ ticket, copies: total }),
       },
-      PRINT_TIMEOUT_MS,
+      timeoutMs,
     );
 
     const data = (await res.json().catch(() => ({}))) as {
@@ -62,16 +91,15 @@ export async function sendPrintTicket(
         ok: false,
         error:
           data.error ??
-          "No se pudo imprimir. Verifica que el servicio local esté activo.",
+          `No se pudo imprimir (HTTP ${res.status}). Revisa la ventana del servicio en el PC de caja.`,
       };
     }
 
     return { ok: true };
-  } catch {
+  } catch (err) {
     return {
       ok: false,
-      error:
-        "Impresora offline — inicia el servicio con npm run print:bridge en el PC de caja.",
+      error: mapFetchError(err),
     };
   }
 }

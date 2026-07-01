@@ -88,11 +88,12 @@ function usesSystemPrinterDriver(iface) {
 }
 export function createBufferPrinter() {
     const nullDevice = process.platform === "win32" ? "\\\\.\\nul" : "/dev/null";
+    const width = Number(process.env.PRINTER_WIDTH ?? 32);
     return new Printer({
         type: PrinterTypes.EPSON,
         interface: nullDevice,
         characterSet: CharacterSet.PC858_EURO,
-        width: 48,
+        width: Number.isFinite(width) && width > 0 ? width : 32,
         removeSpecialCharacters: false,
         lineCharacter: "-",
     });
@@ -122,8 +123,9 @@ async function printViaWinSpool(fn) {
     await fn(builder);
     const buffer = builder.getBuffer();
     if (!buffer?.length) {
-        throw new Error("Ticket vacío, no hay nada que imprimir.");
+        throw new Error("Ticket vacío — no se generó buffer de impresión. Revisa PRINTER_WIDTH en .env.");
     }
+    console.log(`[print-bridge] Enviando ${buffer.length} bytes a "${name}"`);
     await printRawWinSpool(name, buffer);
 }
 export async function isPrinterReady() {

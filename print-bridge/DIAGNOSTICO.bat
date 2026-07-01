@@ -36,6 +36,6 @@ if exist "scripts\raw-print.ps1" (
 echo.
 
 echo Probando servicio /health ...
-powershell -NoProfile -Command "try { $r = Invoke-RestMethod http://127.0.0.1:9101/health; $r | ConvertTo-Json; if ($r.mode -eq 'share' -and $r.effectiveMode -eq 'winspool') { Write-Host ''; Write-Host 'NOTA: .env dice share pero el servicio usa winspool (correcto).' -ForegroundColor Yellow } elseif ($r.printerReady -ne $true) { Write-Host ''; Write-Host 'AVISO: printerReady=false — reinicia Iniciar.bat despues de CORREGIR-ENV.bat' -ForegroundColor Red } } catch { Write-Host 'Servicio no responde. Abre Iniciar.bat primero.' -ForegroundColor Red }"
+powershell -NoProfile -Command "try { $r = Invoke-RestMethod http://127.0.0.1:9101/health; $r | ConvertTo-Json; if ($r.printerReady -ne $true) { Write-Host ''; Write-Host 'AVISO: printerReady=false' -ForegroundColor Red } else { Write-Host ''; Write-Host 'Siguiente: ejecuta PROBAR-COMANDA.bat o abre http://127.0.0.1:9101/print/test' -ForegroundColor Cyan } } catch { Write-Host 'Servicio no responde. Abre Iniciar.bat primero.' -ForegroundColor Red }"
 echo.
 pause
