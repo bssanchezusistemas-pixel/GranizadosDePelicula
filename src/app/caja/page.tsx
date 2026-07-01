@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ProductGrid } from "@/components/caja/ProductGrid";
 import { CartPanel, itemCarritoKey } from "@/components/caja/CartPanel";
 import { CheckoutBar } from "@/components/caja/CheckoutBar";
+import { PrintBridgeStatus } from "@/components/caja/PrintBridgeStatus";
 import {
   confirmarPedidoAction,
   getDomiciliariosConJornadaAction,
@@ -21,6 +22,8 @@ import {
   type TipoEntrega,
   type Ubicacion,
 } from "@/data/caja";
+import { buildOrderTicket } from "@/lib/print/build-ticket";
+import { sendPrintTicket } from "@/lib/print/send";
 
 export default function CajaPage() {
   const router = useRouter();
@@ -41,6 +44,7 @@ export default function CajaPage() {
   const [ultimoPedido, setUltimoPedido] = useState<PedidoCaja | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printAviso, setPrintAviso] = useState<string | null>(null);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -127,9 +131,11 @@ export default function CajaPage() {
     if (items.length === 0 || confirmando) return;
     setConfirmando(true);
     setError(null);
+    setPrintAviso(null);
+    const itemsParaImprimir = items;
     try {
       const pedido = await confirmarPedidoAction({
-        items,
+        items: itemsParaImprimir,
         tipoEntrega,
         formaPago,
         ubicacionId: ubicacionId ?? undefined,
@@ -151,6 +157,23 @@ export default function CajaPage() {
       setUltimoPedido(pedido);
       await cargarDatos();
       router.refresh();
+
+      const ticket = buildOrderTicket({
+        items: itemsParaImprimir,
+        pedido,
+        tipoEntrega,
+        formaPago,
+        ubicaciones,
+        ubicacionId,
+        nombreRecoge,
+        direccion,
+        pagaCon,
+      });
+      void sendPrintTicket(ticket).then((result) => {
+        if (!result.ok) {
+          setPrintAviso(result.error ?? "No se pudo imprimir la comanda.");
+        }
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo confirmar el pedido.");
     } finally {
@@ -172,7 +195,9 @@ export default function CajaPage() {
             Toma de pedidos
           </h1>
         </div>
-        {siguienteNumero !== null && (
+        <div className="flex flex-wrap items-center gap-2">
+          <PrintBridgeStatus />
+          {siguienteNumero !== null && (
           <div className="rounded-xl border border-white/8 bg-cinema-gray px-4 py-2 text-right">
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
               Próximo #
@@ -181,8 +206,22 @@ export default function CajaPage() {
               {siguienteNumero}
             </p>
           </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {printAviso && (
+        <div className="mb-5 rounded-xl border border-amber-700/40 bg-amber-900/15 px-5 py-3 text-sm font-bold text-amber-200">
+          {printAviso}
+          <button
+            type="button"
+            onClick={() => setPrintAviso(null)}
+            className="ml-3 text-[10px] uppercase tracking-wide text-amber-400/80 hover:text-amber-300"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-5 rounded-xl border border-red-700/40 bg-red-900/15 px-5 py-3 text-sm font-bold text-red-300">

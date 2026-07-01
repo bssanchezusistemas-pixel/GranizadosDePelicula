@@ -1,0 +1,38 @@
+GRANIZADOS DE PELÍCULA — IMPRESORA EN PC DE CAJA
+================================================
+
+Esta carpeta es TODO lo que necesita el PC de caja. No hace falta copiar el proyecto completo ni instalar Node en Windows.
+
+CONTENIDO
+---------
+  GranizadosImpresora.exe   → Inicia el servicio (si se generó al empaquetar)
+  Iniciar.bat               → Inicia el servicio (usa esto si no hay .exe)
+  INSTALAR.bat              → Ejecutar UNA VEZ: acceso directo + inicio automático
+  .env.example              → Plantilla de configuración
+  node\                     → Node portable (incluido)
+  app\                      → Servidor de impresión (incluido)
+
+INSTALACIÓN (una sola vez)
+--------------------------
+1. Copia la carpeta "GranizadosImpresora" al PC de caja (ej. C:\GranizadosImpresora)
+2. Doble clic en INSTALAR.bat
+3. Cuando se abra el bloc de notas, pon en PRINTER_NAME el nombre exacto de la impresora LR1100U en Windows
+4. En ALLOWED_ORIGINS pon la URL de tu app en Vercel (ej. https://tu-app.vercel.app)
+
+USO DIARIO
+----------
+- Al encender el PC, el servicio arranca solo (si ejecutaste INSTALAR.bat)
+- O doble clic en "Granizados Impresora" del escritorio
+- Deja la ventana negra abierta — es el servidor de impresión
+- Abre el navegador → URL de Vercel → /caja
+- En caja debe verse "Impresora lista" en verde
+
+CAJA EN NAVEGADOR
+-----------------
+La app de caja vive en Vercel. Solo este PC necesita la carpeta local para imprimir por USB.
+
+SOLUCIÓN DE PROBLEMAS
+---------------------
+- "Impresora no disponible" en caja: verifica que la ventana del servicio esté abierta
+- Lista impresoras: en otra PC con Node, npm run print:test --prefix print-bridge (desarrollo)
+- PRINTER_NAME debe coincidir con Panel de control → Dispositivos e impresoras

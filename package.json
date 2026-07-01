@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "print:bridge": "npm run bridge --prefix print-bridge",
+    "print:test": "npm run test --prefix print-bridge",
+    "print:pack": "npm run pack --prefix print-bridge"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
