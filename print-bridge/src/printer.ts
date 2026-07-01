@@ -7,8 +7,31 @@ import {
   ThermalPrinter as Printer,
   PrinterTypes,
 } from "node-thermal-printer";
+import {
+  isWindowsPrinterAvailable,
+  printRawWinSpool,
+} from "./win-spool.js";
 
 const require = createRequire(import.meta.url);
+
+export type PrintMode = "winspool" | "share" | "native";
+
+export function getPrintMode(): PrintMode {
+  const mode = (process.env.PRINTER_MODE ?? "winspool").trim().toLowerCase();
+  if (mode === "share") return "share";
+  if (mode === "native" || mode === "npm") return "native";
+  return "winspool";
+}
+
+export function getPrinterName(): string {
+  const name = process.env.PRINTER_NAME?.trim();
+  if (!name) {
+    throw new Error(
+      "Falta PRINTER_NAME en .env. Usa el nombre exacto de Get-Printer en PowerShell.",
+    );
+  }
+  return name;
+}
 
 function toLocalSharePath(shareName: string): string {
   let name = shareName.trim();
@@ -54,41 +77,46 @@ function loadSystemPrinterDriver(): object {
   }
 
   throw new Error(
-    [
-      "Modo native no disponible (falta módulo printer).",
-      errors[0] ? `Detalle: ${errors[0]}` : "",
-      "Usa PRINTER_MODE=share en .env (recomendado) y ejecuta INSTALAR.bat.",
-    ]
-      .filter(Boolean)
-      .join(" "),
+    `Modo native no disponible. ${errors[0] ?? ""} Usa PRINTER_MODE=winspool.`,
   );
 }
 
 export function resolvePrinterInterface(): string {
+  const mode = getPrintMode();
+  if (mode === "winspool") {
+    return `winspool:${getPrinterName()}`;
+  }
+
   const custom = process.env.PRINTER_INTERFACE?.trim();
   if (custom) return custom;
 
   const share = process.env.PRINTER_SHARE?.trim();
   if (share) return toLocalSharePath(share);
 
-  const name = process.env.PRINTER_NAME?.trim();
-  if (!name) {
-    throw new Error(
-      "Falta PRINTER_NAME en .env. Pon el nombre exacto de la impresora en Windows.",
-    );
-  }
-
-  const mode = (process.env.PRINTER_MODE ?? "share").trim().toLowerCase();
-  if (mode === "native" || mode === "npm") {
+  const name = getPrinterName();
+  if (mode === "native") {
     return `printer:${name}`;
   }
 
-  // Por defecto: impresora compartida (no requiere módulo printer nativo)
   return toLocalSharePath(name);
 }
 
 function usesSystemPrinterDriver(iface: string): boolean {
   return iface.startsWith("printer:");
+}
+
+export function createBufferPrinter(): ThermalPrinter {
+  const nullDevice =
+    process.platform === "win32" ? "\\\\.\\nul" : "/dev/null";
+
+  return new Printer({
+    type: PrinterTypes.EPSON,
+    interface: nullDevice,
+    characterSet: CharacterSet.PC858_EURO,
+    width: 48,
+    removeSpecialCharacters: false,
+    lineCharacter: "-",
+  });
 }
 
 export function createPrinter(): ThermalPrinter {
@@ -111,6 +139,10 @@ export function createPrinter(): ThermalPrinter {
 
 export async function isPrinterReady(): Promise<boolean> {
   try {
+    if (getPrintMode() === "winspool" && process.platform === "win32") {
+      return await isWindowsPrinterAvailable(getPrinterName());
+    }
+
     const printer = createPrinter();
     return (await printer.isPrinterConnected()) === true;
   } catch {
@@ -121,17 +153,30 @@ export async function isPrinterReady(): Promise<boolean> {
 export async function executePrint(
   fn: (printer: ThermalPrinter) => Promise<void> | void,
 ): Promise<void> {
+  if (getPrintMode() === "winspool" && process.platform === "win32") {
+    const name = getPrinterName();
+    const ready = await isWindowsPrinterAvailable(name);
+    if (!ready) {
+      throw new Error(
+        `Impresora "${name}" no encontrada en Windows. Ejecuta Get-Printer y revisa PRINTER_NAME.`,
+      );
+    }
+
+    const builder = createBufferPrinter();
+    await fn(builder);
+    const buffer = builder.getBuffer();
+    if (!buffer?.length) {
+      throw new Error("Ticket vacío, no hay nada que imprimir.");
+    }
+    await printRawWinSpool(name, buffer);
+    return;
+  }
+
   const printer = createPrinter();
   const connected = await isPrinterReady();
   if (!connected) {
-    const iface = resolvePrinterInterface();
     throw new Error(
-      [
-        `No se pudo conectar a la impresora (${iface}).`,
-        "Verifica: impresora encendida, USB conectado, PRINTER_NAME correcto.",
-        "Si usas modo share: ejecuta INSTALAR.bat para compartir la impresora,",
-        "o en Windows → Propiedades de impresora → Compartir.",
-      ].join(" "),
+      `No se pudo conectar (${resolvePrinterInterface()}). Prueba PRINTER_MODE=winspool.`,
     );
   }
   await fn(printer);

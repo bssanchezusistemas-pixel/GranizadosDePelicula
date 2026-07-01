@@ -15,7 +15,7 @@ const allowedOrigins = (
   "http://localhost:3000,http://localhost:3001"
 )
   .split(",")
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 const app = express();
@@ -52,6 +52,7 @@ app.get("/health", async (_req, res) => {
   res.json({
     ok: true,
     printer: process.env.PRINTER_NAME ?? null,
+    mode: process.env.PRINTER_MODE ?? "winspool",
     interface: printerInterface,
     printerReady,
     printerError,

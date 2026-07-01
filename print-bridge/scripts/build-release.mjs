@@ -126,6 +126,7 @@ async function main() {
   cpSync(path.join(BRIDGE_ROOT, "Iniciar.bat"), path.join(RELEASE_DIR, "Iniciar.bat"));
   cpSync(path.join(BRIDGE_ROOT, "INSTALAR.bat"), path.join(RELEASE_DIR, "INSTALAR.bat"));
   cpSync(path.join(BRIDGE_ROOT, "DIAGNOSTICO.bat"), path.join(RELEASE_DIR, "DIAGNOSTICO.bat"));
+  cpSync(path.join(BRIDGE_ROOT, "PROBAR-IMPRESORA.bat"), path.join(RELEASE_DIR, "PROBAR-IMPRESORA.bat"));
   cpSync(
     path.join(BRIDGE_ROOT, "LEEME-CAJA.txt"),
     path.join(RELEASE_DIR, "LEEME-CAJA.txt"),
@@ -138,6 +139,10 @@ async function main() {
   cpSync(
     path.join(BRIDGE_ROOT, "scripts", "share-printer.ps1"),
     path.join(RELEASE_DIR, "scripts", "share-printer.ps1"),
+  );
+  cpSync(
+    path.join(BRIDGE_ROOT, "scripts", "raw-print.ps1"),
+    path.join(RELEASE_DIR, "scripts", "raw-print.ps1"),
   );
 
   log("Generando GranizadosImpresora.exe...");
