@@ -10,6 +10,16 @@ import {
 
 const require = createRequire(import.meta.url);
 
+function toLocalSharePath(shareName: string): string {
+  let name = shareName.trim();
+  const prefix = "\\\\localhost\\";
+  if (name.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return name;
+  }
+  name = name.replace(/^\\\\+/, "");
+  return `${prefix}${name}`;
+}
+
 function moduleSearchPaths(): string[] {
   const distDir = path.dirname(fileURLToPath(import.meta.url));
   const appRoot = process.env.GRANIZADOS_APP_ROOT?.trim();
@@ -28,12 +38,10 @@ function moduleSearchPaths(): string[] {
 
 function loadSystemPrinterDriver(): object {
   const errors: string[] = [];
-
   const attempts: Array<() => object> = [
     () => require("printer") as object,
     ...moduleSearchPaths().map((dir) => () => {
-      const modPath = path.join(dir, "printer");
-      return require(modPath) as object;
+      return require(path.join(dir, "printer")) as object;
     }),
   ];
 
@@ -47,11 +55,9 @@ function loadSystemPrinterDriver(): object {
 
   throw new Error(
     [
-      "No se pudo cargar el driver de impresora.",
+      "Modo native no disponible (falta módulo printer).",
       errors[0] ? `Detalle: ${errors[0]}` : "",
-      "Solución: ejecuta INSTALAR.bat en esta carpeta.",
-      "Alternativa en .env: comparte la impresora en Windows y usa",
-      "PRINTER_INTERFACE=\\\\localhost\\NombreCompartido",
+      "Usa PRINTER_MODE=share en .env (recomendado) y ejecuta INSTALAR.bat.",
     ]
       .filter(Boolean)
       .join(" "),
@@ -63,23 +69,22 @@ export function resolvePrinterInterface(): string {
   if (custom) return custom;
 
   const share = process.env.PRINTER_SHARE?.trim();
-  if (share) {
-    let name = share;
-    const prefix = "\\\\localhost\\";
-    if (name.toLowerCase().startsWith(prefix.toLowerCase())) {
-      name = name.slice(prefix.length);
-    }
-    name = name.replace(/^\\\\+/, "");
-    return `${prefix}${name}`;
-  }
+  if (share) return toLocalSharePath(share);
 
   const name = process.env.PRINTER_NAME?.trim();
   if (!name) {
     throw new Error(
-      "Falta PRINTER_NAME o PRINTER_INTERFACE en .env (ver .env.example).",
+      "Falta PRINTER_NAME en .env. Pon el nombre exacto de la impresora en Windows.",
     );
   }
-  return `printer:${name}`;
+
+  const mode = (process.env.PRINTER_MODE ?? "share").trim().toLowerCase();
+  if (mode === "native" || mode === "npm") {
+    return `printer:${name}`;
+  }
+
+  // Por defecto: impresora compartida (no requiere módulo printer nativo)
+  return toLocalSharePath(name);
 }
 
 function usesSystemPrinterDriver(iface: string): boolean {
@@ -119,13 +124,14 @@ export async function executePrint(
   const printer = createPrinter();
   const connected = await isPrinterReady();
   if (!connected) {
-    const label =
-      process.env.PRINTER_NAME?.trim() ??
-      process.env.PRINTER_INTERFACE?.trim() ??
-      process.env.PRINTER_SHARE?.trim() ??
-      "(sin configurar)";
+    const iface = resolvePrinterInterface();
     throw new Error(
-      `No se pudo conectar a la impresora "${label}". Verifica USB, encendido, driver y que PRINTER_NAME coincida exactamente con Windows.`,
+      [
+        `No se pudo conectar a la impresora (${iface}).`,
+        "Verifica: impresora encendida, USB conectado, PRINTER_NAME correcto.",
+        "Si usas modo share: ejecuta INSTALAR.bat para compartir la impresora,",
+        "o en Windows → Propiedades de impresora → Compartir.",
+      ].join(" "),
     );
   }
   await fn(printer);
