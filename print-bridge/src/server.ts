@@ -3,6 +3,7 @@ import cors from "cors";
 
 loadAppEnv();
 import express from "express";
+import { isPrinterReady, resolvePrinterInterface } from "./printer.js";
 import { printComanda } from "./templates/comanda.js";
 import type { OrderTicket } from "./types.js";
 
@@ -31,10 +32,29 @@ app.use(
   }),
 );
 
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
+  let printerReady = false;
+  let printerError: string | null = null;
+  let printerInterface: string | null = null;
+
+  try {
+    printerInterface = resolvePrinterInterface();
+    printerReady = await isPrinterReady();
+    if (!printerReady) {
+      printerError =
+        "Impresora no detectada. Revisa USB, encendido y PRINTER_NAME en .env.";
+    }
+  } catch (err) {
+    printerError =
+      err instanceof Error ? err.message : "Error al comprobar la impresora";
+  }
+
   res.json({
     ok: true,
     printer: process.env.PRINTER_NAME ?? null,
+    interface: printerInterface,
+    printerReady,
+    printerError,
     port: PORT,
   });
 });

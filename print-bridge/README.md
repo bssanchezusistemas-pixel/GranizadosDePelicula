@@ -87,7 +87,10 @@ Solo escucha en `127.0.0.1:9101` (localhost).
 
 | Síntoma | Solución |
 |---------|----------|
-| No se pudo conectar | USB, encendido, driver, nombre en `PRINTER_NAME` |
+| **No driver set** / error de driver | Ejecuta `npm install` en print-bridge (incluye el paquete `printer`) y reinicia el servicio |
+| No se pudo conectar | USB, encendido, driver, nombre en `PRINTER_NAME` (debe ser idéntico al de Windows) |
+| Lista impresoras | `npm run printers --prefix print-bridge` |
+| Verde servicio pero no imprime | El indicador ahora distingue servicio vs impresora; revisa `PRINTER_NAME` |
 | Caracteres raros (ñ, tildes) | Driver Logic Controls; code page PC858 |
 | Caja dice “impresora offline” | Ventana del servicio abierta o reiniciar acceso directo |
 | Origen no permitido (CORS) | Agregar URL de Vercel a `ALLOWED_ORIGINS` |

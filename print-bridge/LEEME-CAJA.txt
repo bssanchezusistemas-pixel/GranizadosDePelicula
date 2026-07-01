@@ -1,4 +1,4 @@
-GRANIZADOS DE PELÍCULA — IMPRESORA EN PC DE CAJA
+ GRANIZADOS DE PELÍCULA — IMPRESORA EN PC DE CAJA
 ================================================
 
 Esta carpeta es TODO lo que necesita el PC de caja. No hace falta copiar el proyecto completo ni instalar Node en Windows.
@@ -33,6 +33,10 @@ La app de caja vive en Vercel. Solo este PC necesita la carpeta local para impri
 
 SOLUCIÓN DE PROBLEMAS
 ---------------------
+- "Impresora lista" pero error al imprimir (driver / No driver set):
+  1. Cierra el servicio y vuelve a abrirlo después de actualizar la carpeta
+  2. En .env, PRINTER_NAME debe ser IDÉNTICO al nombre en Windows
+  3. Lista nombres: en desarrollo, npm run print:printers
+  4. Alternativa: comparte la impresora en Windows y usa:
+     PRINTER_INTERFACE=\\localhost\NombreCompartido
 - "Impresora no disponible" en caja: verifica que la ventana del servicio esté abierta
-- Lista impresoras: en otra PC con Node, npm run print:test --prefix print-bridge (desarrollo)
-- PRINTER_NAME debe coincidir con Panel de control → Dispositivos e impresoras

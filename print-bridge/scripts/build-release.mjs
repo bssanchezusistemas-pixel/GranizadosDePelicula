@@ -50,7 +50,6 @@ function download(url, dest) {
 }
 
 async function extractNodeZip(zipPath, destDir) {
-  // Use PowerShell Expand-Archive on Windows (reliable for zip)
   const extractTo = path.join(CACHE_DIR, "node-extract");
   rmSync(extractTo, { recursive: true, force: true });
   mkdirSync(extractTo, { recursive: true });
@@ -60,8 +59,7 @@ async function extractNodeZip(zipPath, destDir) {
   );
   const inner = path.join(extractTo, `node-${NODE_VERSION}-win-x64`);
   rmSync(destDir, { recursive: true, force: true });
-  mkdirSync(destDir, { recursive: true });
-  cpSync(path.join(inner, "node.exe"), path.join(destDir, "node.exe"));
+  cpSync(inner, destDir, { recursive: true });
 }
 
 async function main() {
@@ -71,6 +69,18 @@ async function main() {
   log("Preparando carpeta release...");
   rmSync(RELEASE_DIR, { recursive: true, force: true });
   mkdirSync(RELEASE_DIR, { recursive: true });
+
+  const nodeDir = path.join(RELEASE_DIR, "node");
+  mkdirSync(CACHE_DIR, { recursive: true });
+  const zipPath = path.join(CACHE_DIR, NODE_ZIP);
+  if (!existsSync(zipPath)) {
+    log(`Descargando Node ${NODE_VERSION}...`);
+    await download(NODE_URL, zipPath);
+  } else {
+    log("Usando Node en caché...");
+  }
+  log("Extrayendo Node portable (completo, para npm install)...");
+  await extractNodeZip(zipPath, nodeDir);
 
   const appDir = path.join(RELEASE_DIR, "app");
   mkdirSync(appDir, { recursive: true });
@@ -92,20 +102,9 @@ async function main() {
     JSON.stringify(prodPkg, null, 2),
   );
 
-  log("Instalando dependencias de producción en app/...");
-  execSync("npm install --omit=dev", { cwd: appDir, stdio: "inherit" });
-
-  const nodeDir = path.join(RELEASE_DIR, "node");
-  mkdirSync(CACHE_DIR, { recursive: true });
-  const zipPath = path.join(CACHE_DIR, NODE_ZIP);
-  if (!existsSync(zipPath)) {
-    log(`Descargando Node ${NODE_VERSION}...`);
-    await download(NODE_URL, zipPath);
-  } else {
-    log("Usando Node en caché...");
-  }
-  log("Extrayendo Node portable...");
-  await extractNodeZip(zipPath, nodeDir);
+  log("Instalando dependencias con Node portable (driver nativo correcto)...");
+  const npmCmd = path.join(nodeDir, "npm.cmd");
+  execSync(`"${npmCmd}" install --omit=dev`, { cwd: appDir, stdio: "inherit" });
 
   cpSync(
     path.join(BRIDGE_ROOT, ".env.example"),

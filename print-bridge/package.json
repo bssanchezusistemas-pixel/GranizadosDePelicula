@@ -7,13 +7,15 @@
     "build": "tsc",
     "pack": "node scripts/build-release.mjs",
     "bridge": "tsx src/server.ts",
-    "test": "tsx scripts/test-print.ts"
+    "test": "tsx scripts/test-print.ts",
+    "printers": "tsx scripts/list-printers.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "node-thermal-printer": "^4.4.5"
+    "node-thermal-printer": "^4.4.5",
+    "printer": "^0.4.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

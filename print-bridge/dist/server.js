@@ -2,6 +2,7 @@ import { loadAppEnv } from "./env.js";
 import cors from "cors";
 loadAppEnv();
 import express from "express";
+import { isPrinterReady, resolvePrinterInterface } from "./printer.js";
 import { printComanda } from "./templates/comanda.js";
 const PORT = Number(process.env.PORT ?? 9101);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -21,10 +22,28 @@ app.use(cors({
         callback(null, false);
     },
 }));
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
+    let printerReady = false;
+    let printerError = null;
+    let printerInterface = null;
+    try {
+        printerInterface = resolvePrinterInterface();
+        printerReady = await isPrinterReady();
+        if (!printerReady) {
+            printerError =
+                "Impresora no detectada. Revisa USB, encendido y PRINTER_NAME en .env.";
+        }
+    }
+    catch (err) {
+        printerError =
+            err instanceof Error ? err.message : "Error al comprobar la impresora";
+    }
     res.json({
         ok: true,
         printer: process.env.PRINTER_NAME ?? null,
+        interface: printerInterface,
+        printerReady,
+        printerError,
         port: PORT,
     });
 });
