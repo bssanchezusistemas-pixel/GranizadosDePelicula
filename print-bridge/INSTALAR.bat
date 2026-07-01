@@ -11,7 +11,7 @@ echo.
 echo Esto creara:
 echo   - Acceso directo en el Escritorio
 echo   - Inicio automatico al encender Windows
-echo   - Compartir impresora (modo recomendado)
+echo   - Modo winspool (impresion directa por nombre Windows)
 echo.
 
 if not exist ".env" (
@@ -57,7 +57,7 @@ echo.
 set "INSTALL_DIR=%~dp0"
 if "%INSTALL_DIR:~-1%"=="\" set "INSTALL_DIR=%INSTALL_DIR:~0,-1%"
 
-echo Compartiendo impresora en Windows...
+echo Configurando impresora en .env (modo winspool)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\share-printer.ps1" -InstallDir "%INSTALL_DIR%"
 echo.
 

@@ -23,6 +23,7 @@ export interface PrintBridgeHealth {
   ok: boolean;
   printer?: string | null;
   mode?: string | null;
+  effectiveMode?: string | null;
   interface?: string | null;
   printerReady?: boolean;
   printerError?: string | null;

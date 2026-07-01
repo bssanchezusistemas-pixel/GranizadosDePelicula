@@ -68,7 +68,7 @@ foreach ($line in $lines) {
     $newLines += "PRINTER_SHARE=$shareName"
     $hasShare = $true
   } elseif ($line -match '^\s*PRINTER_MODE\s*=') {
-    $newLines += "PRINTER_MODE=share"
+    $newLines += "PRINTER_MODE=winspool"
     $hasMode = $true
   } else {
     $newLines += $line
@@ -76,7 +76,7 @@ foreach ($line in $lines) {
 }
 
 if (-not $hasShare) { $newLines += "PRINTER_SHARE=$shareName" }
-if (-not $hasMode) { $newLines += "PRINTER_MODE=share" }
+if (-not $hasMode) { $newLines += "PRINTER_MODE=winspool" }
 
 Set-Content -Path $envFile -Value $newLines -Encoding UTF8
-Write-Host "Actualizado .env con PRINTER_SHARE=$shareName y PRINTER_MODE=share"
+Write-Host "Actualizado .env con PRINTER_SHARE=$shareName y PRINTER_MODE=winspool"

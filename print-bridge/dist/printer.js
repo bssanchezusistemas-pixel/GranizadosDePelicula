@@ -12,6 +12,14 @@ export function getPrintMode() {
         return "native";
     return "winspool";
 }
+/** Modo real de impresión. En Windows, share/native se redirigen a winspool. */
+export function getEffectivePrintMode() {
+    const mode = getPrintMode();
+    if (process.platform === "win32" && (mode === "share" || mode === "native")) {
+        return "winspool";
+    }
+    return mode;
+}
 export function getPrinterName() {
     const name = process.env.PRINTER_NAME?.trim();
     if (!name) {
@@ -59,7 +67,7 @@ function loadSystemPrinterDriver() {
     throw new Error(`Modo native no disponible. ${errors[0] ?? ""} Usa PRINTER_MODE=winspool.`);
 }
 export function resolvePrinterInterface() {
-    const mode = getPrintMode();
+    const mode = getEffectivePrintMode();
     if (mode === "winspool") {
         return `winspool:${getPrinterName()}`;
     }
@@ -104,9 +112,23 @@ export function createPrinter() {
     }
     return new Printer(config);
 }
+async function printViaWinSpool(fn) {
+    const name = getPrinterName();
+    const ready = await isWindowsPrinterAvailable(name);
+    if (!ready) {
+        throw new Error(`Impresora "${name}" no encontrada en Windows. Ejecuta Get-Printer y revisa PRINTER_NAME.`);
+    }
+    const builder = createBufferPrinter();
+    await fn(builder);
+    const buffer = builder.getBuffer();
+    if (!buffer?.length) {
+        throw new Error("Ticket vacío, no hay nada que imprimir.");
+    }
+    await printRawWinSpool(name, buffer);
+}
 export async function isPrinterReady() {
     try {
-        if (getPrintMode() === "winspool" && process.platform === "win32") {
+        if (getEffectivePrintMode() === "winspool" && process.platform === "win32") {
             return await isWindowsPrinterAvailable(getPrinterName());
         }
         const printer = createPrinter();
@@ -117,19 +139,8 @@ export async function isPrinterReady() {
     }
 }
 export async function executePrint(fn) {
-    if (getPrintMode() === "winspool" && process.platform === "win32") {
-        const name = getPrinterName();
-        const ready = await isWindowsPrinterAvailable(name);
-        if (!ready) {
-            throw new Error(`Impresora "${name}" no encontrada en Windows. Ejecuta Get-Printer y revisa PRINTER_NAME.`);
-        }
-        const builder = createBufferPrinter();
-        await fn(builder);
-        const buffer = builder.getBuffer();
-        if (!buffer?.length) {
-            throw new Error("Ticket vacío, no hay nada que imprimir.");
-        }
-        await printRawWinSpool(name, buffer);
+    if (getEffectivePrintMode() === "winspool" && process.platform === "win32") {
+        await printViaWinSpool(fn);
         return;
     }
     const printer = createPrinter();

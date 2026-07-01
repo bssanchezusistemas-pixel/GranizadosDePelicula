@@ -17,18 +17,25 @@ echo Contenido de .env:
 findstr /i "PRINTER PORT ALLOWED" .env
 echo.
 
+findstr /i "PRINTER_MODE=share" .env >nul 2>&1
+if %errorlevel%==0 (
+  echo [AVISO] Tienes PRINTER_MODE=share — en este PC no funciona.
+  echo         Ejecuta CORREGIR-ENV.bat o cambia a PRINTER_MODE=winspool
+  echo.
+)
+
 echo Impresoras en Windows:
 powershell -NoProfile -Command "Get-Printer | Select-Object Name, Shared, ShareName, PrinterStatus | Format-Table -AutoSize"
 echo.
 
-if exist "app\node_modules\printer" (
-  echo [OK] Carpeta app\node_modules\printer existe
+if exist "scripts\raw-print.ps1" (
+  echo [OK] Script raw-print.ps1 presente
 ) else (
-  echo [AVISO] No hay app\node_modules\printer - normal si usas PRINTER_MODE=share
+  echo [ERROR] Falta scripts\raw-print.ps1 — actualiza la carpeta GranizadosImpresora
 )
 echo.
 
 echo Probando servicio /health ...
-powershell -NoProfile -Command "try { $r = Invoke-RestMethod http://127.0.0.1:9101/health; $r | ConvertTo-Json } catch { Write-Host 'Servicio no responde. Abre Iniciar.bat primero.' -ForegroundColor Red }"
+powershell -NoProfile -Command "try { $r = Invoke-RestMethod http://127.0.0.1:9101/health; $r | ConvertTo-Json; if ($r.mode -eq 'share' -and $r.effectiveMode -eq 'winspool') { Write-Host ''; Write-Host 'NOTA: .env dice share pero el servicio usa winspool (correcto).' -ForegroundColor Yellow } elseif ($r.printerReady -ne $true) { Write-Host ''; Write-Host 'AVISO: printerReady=false — reinicia Iniciar.bat despues de CORREGIR-ENV.bat' -ForegroundColor Red } } catch { Write-Host 'Servicio no responde. Abre Iniciar.bat primero.' -ForegroundColor Red }"
 echo.
 pause

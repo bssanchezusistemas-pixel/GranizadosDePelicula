@@ -2,7 +2,7 @@ import { loadAppEnv } from "./env.js";
 import cors from "cors";
 loadAppEnv();
 import express from "express";
-import { isPrinterReady, resolvePrinterInterface } from "./printer.js";
+import { getEffectivePrintMode, getPrintMode, isPrinterReady, resolvePrinterInterface, } from "./printer.js";
 import { printComanda } from "./templates/comanda.js";
 const PORT = Number(process.env.PORT ?? 9101);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -41,7 +41,8 @@ app.get("/health", async (_req, res) => {
     res.json({
         ok: true,
         printer: process.env.PRINTER_NAME ?? null,
-        mode: process.env.PRINTER_MODE ?? "winspool",
+        mode: getPrintMode(),
+        effectiveMode: getEffectivePrintMode(),
         interface: printerInterface,
         printerReady,
         printerError,
