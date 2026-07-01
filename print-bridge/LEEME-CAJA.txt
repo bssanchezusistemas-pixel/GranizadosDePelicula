@@ -33,10 +33,12 @@ La app de caja vive en Vercel. Solo este PC necesita la carpeta local para impri
 
 SOLUCIÓN DE PROBLEMAS
 ---------------------
-- "Impresora lista" pero error al imprimir (driver / No driver set):
-  1. Cierra el servicio y vuelve a abrirlo después de actualizar la carpeta
-  2. En .env, PRINTER_NAME debe ser IDÉNTICO al nombre en Windows
-  3. Lista nombres: en desarrollo, npm run print:printers
-  4. Alternativa: comparte la impresora en Windows y usa:
+- Error al ejecutar INSTALAR.bat (Resolve-Path / caracteres invalidos):
+  Ya corregido en version reciente. Usa carpeta nueva y vuelve a ejecutar INSTALAR.bat.
+- "No se pudo cargar el driver de impresora":
+  1. Ejecuta INSTALAR.bat (instala dependencias con internet)
+  2. Reinicia con Iniciar.bat
+  3. Si sigue: comparte la impresora en Windows y en .env usa:
      PRINTER_INTERFACE=\\localhost\NombreCompartido
-- "Impresora no disponible" en caja: verifica que la ventana del servicio esté abierta
+- "Impresora lista" pero error al imprimir: revisa PRINTER_NAME en .env
+- "Impresora no disponible" en caja: ventana del servicio abierta

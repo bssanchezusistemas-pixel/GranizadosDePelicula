@@ -18,13 +18,21 @@ if not exist "node\node.exe" (
   exit /b 1
 )
 
+if not exist "app\node_modules\printer" (
+  echo.
+  echo AVISO: Falta el driver de impresora.
+  echo Ejecuta INSTALAR.bat una vez en esta carpeta.
+  echo.
+)
+
 echo ========================================
 echo   GRANIZADOS DE PELICULA — IMPRESORA
 echo ========================================
 echo Servicio activo. NO cierre esta ventana.
 echo.
 
-set GRANIZADOS_APP_ROOT=%~dp0
+set "GRANIZADOS_APP_ROOT=%~dp0"
+set "NODE_PATH=%~dp0app\node_modules"
 "node\node.exe" "app\dist\server.js"
 
 echo.

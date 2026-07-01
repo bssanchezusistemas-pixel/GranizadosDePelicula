@@ -1,4 +1,6 @@
 import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   CharacterSet,
   type ThermalPrinter,
@@ -8,19 +10,68 @@ import {
 
 const require = createRequire(import.meta.url);
 
-function loadSystemPrinterDriver(): object {
-  try {
-    return require("printer") as object;
-  } catch {
-    throw new Error(
-      "No se pudo cargar el driver de impresora. Ejecuta npm install en print-bridge o reinstala con INSTALAR.bat.",
-    );
+function moduleSearchPaths(): string[] {
+  const distDir = path.dirname(fileURLToPath(import.meta.url));
+  const appRoot = process.env.GRANIZADOS_APP_ROOT?.trim();
+  const paths: string[] = [];
+
+  if (appRoot) {
+    paths.push(path.join(appRoot, "app", "node_modules"));
+    paths.push(path.join(appRoot, "node_modules"));
   }
+
+  paths.push(path.join(distDir, "..", "node_modules"));
+  paths.push(path.join(distDir, "..", "..", "node_modules"));
+
+  return paths;
+}
+
+function loadSystemPrinterDriver(): object {
+  const errors: string[] = [];
+
+  const attempts: Array<() => object> = [
+    () => require("printer") as object,
+    ...moduleSearchPaths().map((dir) => () => {
+      const modPath = path.join(dir, "printer");
+      return require(modPath) as object;
+    }),
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      return attempt();
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  throw new Error(
+    [
+      "No se pudo cargar el driver de impresora.",
+      errors[0] ? `Detalle: ${errors[0]}` : "",
+      "Solución: ejecuta INSTALAR.bat en esta carpeta.",
+      "Alternativa en .env: comparte la impresora en Windows y usa",
+      "PRINTER_INTERFACE=\\\\localhost\\NombreCompartido",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
 }
 
 export function resolvePrinterInterface(): string {
   const custom = process.env.PRINTER_INTERFACE?.trim();
   if (custom) return custom;
+
+  const share = process.env.PRINTER_SHARE?.trim();
+  if (share) {
+    let name = share;
+    const prefix = "\\\\localhost\\";
+    if (name.toLowerCase().startsWith(prefix.toLowerCase())) {
+      name = name.slice(prefix.length);
+    }
+    name = name.replace(/^\\\\+/, "");
+    return `${prefix}${name}`;
+  }
 
   const name = process.env.PRINTER_NAME?.trim();
   if (!name) {
@@ -54,8 +105,8 @@ export function createPrinter(): ThermalPrinter {
 }
 
 export async function isPrinterReady(): Promise<boolean> {
-  const printer = createPrinter();
   try {
+    const printer = createPrinter();
     return (await printer.isPrinterConnected()) === true;
   } catch {
     return false;
@@ -71,6 +122,7 @@ export async function executePrint(
     const label =
       process.env.PRINTER_NAME?.trim() ??
       process.env.PRINTER_INTERFACE?.trim() ??
+      process.env.PRINTER_SHARE?.trim() ??
       "(sin configurar)";
     throw new Error(
       `No se pudo conectar a la impresora "${label}". Verifica USB, encendido, driver y que PRINTER_NAME coincida exactamente con Windows.`,

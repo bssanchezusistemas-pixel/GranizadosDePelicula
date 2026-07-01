@@ -61,14 +61,15 @@ app.get("/health", async (_req, res) => {
 
 app.post("/print", async (req, res) => {
   const ticket = req.body?.ticket as OrderTicket | undefined;
+  const copies = Number(req.body?.copies ?? 1);
   if (!ticket?.numeroPedido || !Array.isArray(ticket.items)) {
     res.status(400).json({ ok: false, error: "Payload inválido: falta ticket" });
     return;
   }
 
   try {
-    await printComanda(ticket);
-    res.json({ ok: true });
+    await printComanda(ticket, copies);
+    res.json({ ok: true, copies: Math.min(5, Math.max(1, Math.floor(copies) || 1)) });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Error desconocido al imprimir";

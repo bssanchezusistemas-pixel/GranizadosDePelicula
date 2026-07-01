@@ -101,10 +101,23 @@ async function main() {
     path.join(appDir, "package.json"),
     JSON.stringify(prodPkg, null, 2),
   );
+  const lockPath = path.join(BRIDGE_ROOT, "package-lock.json");
+  if (existsSync(lockPath)) {
+    cpSync(lockPath, path.join(appDir, "package-lock.json"));
+  }
+
+  const appModules = path.join(appDir, "node_modules");
+  if (existsSync(appModules)) {
+    log("Limpiando node_modules anterior en app/...");
+    rmSync(appModules, { recursive: true, force: true });
+  }
 
   log("Instalando dependencias con Node portable (driver nativo correcto)...");
   const npmCmd = path.join(nodeDir, "npm.cmd");
-  execSync(`"${npmCmd}" install --omit=dev`, { cwd: appDir, stdio: "inherit" });
+  execSync(`"${npmCmd}" install --omit=dev --legacy-peer-deps`, {
+    cwd: appDir,
+    stdio: "inherit",
+  });
 
   cpSync(
     path.join(BRIDGE_ROOT, ".env.example"),

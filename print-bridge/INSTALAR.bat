@@ -11,6 +11,7 @@ echo.
 echo Esto creara:
 echo   - Acceso directo en el Escritorio
 echo   - Inicio automatico al encender Windows
+echo   - Instalacion del driver de impresora
 echo.
 
 if not exist ".env" (
@@ -18,7 +19,7 @@ if not exist ".env" (
     echo Creando .env desde .env.example...
     copy /Y ".env.example" ".env" >nul
     echo.
-    echo IMPORTANTE: Edita .env y pon PRINTER_NAME con el nombre de la impresora en Windows.
+    echo IMPORTANTE: Edita .env y pon PRINTER_NAME con el nombre exacto de la impresora en Windows.
     echo.
     notepad ".env"
   ) else (
@@ -28,7 +29,35 @@ if not exist ".env" (
   )
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\setup-windows.ps1" -InstallDir "%~dp0"
+if not exist "node\node.exe" (
+  echo ERROR: Falta node\node.exe — carpeta incompleta.
+  pause
+  exit /b 1
+)
+
+if not exist "app\package.json" (
+  echo ERROR: Falta app\package.json — carpeta incompleta.
+  pause
+  exit /b 1
+)
+
+echo Instalando dependencias de impresion (puede tardar 1-2 min)...
+pushd "app"
+call "..\node\npm.cmd" install --omit=dev --legacy-peer-deps
+if errorlevel 1 (
+  echo.
+  echo ERROR: No se pudo instalar el driver. Revisa conexion a internet e intenta de nuevo.
+  popd
+  pause
+  exit /b 1
+)
+popd
+echo.
+
+set "INSTALL_DIR=%~dp0"
+if "%INSTALL_DIR:~-1%"=="\" set "INSTALL_DIR=%INSTALL_DIR:~0,-1%"
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\setup-windows.ps1" -InstallDir "%INSTALL_DIR%"
 
 echo.
 pause

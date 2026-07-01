@@ -1,10 +1,27 @@
 # Crea acceso directo en Escritorio e inicio automático al encender Windows.
 param(
-  [string]$InstallDir = $PSScriptRoot
+  [string]$InstallDir = ""
 )
 
 $ErrorActionPreference = "Stop"
-$InstallDir = (Resolve-Path $InstallDir).Path.TrimEnd("\")
+
+if ([string]::IsNullOrWhiteSpace($InstallDir)) {
+  $InstallDir = Split-Path -Parent $PSScriptRoot
+} else {
+  $InstallDir = $InstallDir.Trim().Trim('"').TrimEnd('\')
+}
+
+try {
+  $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
+} catch {
+  Write-Host "ERROR: Ruta de instalación no válida: $InstallDir" -ForegroundColor Red
+  exit 1
+}
+
+if (-not (Test-Path $InstallDir)) {
+  Write-Host "ERROR: No existe la carpeta: $InstallDir" -ForegroundColor Red
+  exit 1
+}
 
 $exePath = Join-Path $InstallDir "GranizadosImpresora.exe"
 $batPath = Join-Path $InstallDir "Iniciar.bat"
