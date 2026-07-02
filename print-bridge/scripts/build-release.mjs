@@ -129,6 +129,10 @@ async function main() {
   cpSync(path.join(BRIDGE_ROOT, "PROBAR-IMPRESORA.bat"), path.join(RELEASE_DIR, "PROBAR-IMPRESORA.bat"));
   cpSync(path.join(BRIDGE_ROOT, "CORREGIR-ENV.bat"), path.join(RELEASE_DIR, "CORREGIR-ENV.bat"));
   cpSync(path.join(BRIDGE_ROOT, "PROBAR-COMANDA.bat"), path.join(RELEASE_DIR, "PROBAR-COMANDA.bat"));
+  cpSync(path.join(BRIDGE_ROOT, "PROBAR-COMANDA-DIRECT.bat"), path.join(RELEASE_DIR, "PROBAR-COMANDA-DIRECT.bat"));
+  cpSync(path.join(BRIDGE_ROOT, "DETECTAR-CONEXION.bat"), path.join(RELEASE_DIR, "DETECTAR-CONEXION.bat"));
+  cpSync(path.join(BRIDGE_ROOT, "PROBAR-RED.bat"), path.join(RELEASE_DIR, "PROBAR-RED.bat"));
+  cpSync(path.join(BRIDGE_ROOT, "VER-COLA-IMPRESION.bat"), path.join(RELEASE_DIR, "VER-COLA-IMPRESION.bat"));
   cpSync(
     path.join(BRIDGE_ROOT, "LEEME-CAJA.txt"),
     path.join(RELEASE_DIR, "LEEME-CAJA.txt"),
@@ -141,6 +145,10 @@ async function main() {
   cpSync(
     path.join(BRIDGE_ROOT, "scripts", "share-printer.ps1"),
     path.join(RELEASE_DIR, "scripts", "share-printer.ps1"),
+  );
+  cpSync(
+    path.join(BRIDGE_ROOT, "scripts", "detect-printer-connection.ps1"),
+    path.join(RELEASE_DIR, "scripts", "detect-printer-connection.ps1"),
   );
   cpSync(
     path.join(BRIDGE_ROOT, "scripts", "raw-print.ps1"),

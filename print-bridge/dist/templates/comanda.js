@@ -1,82 +1,78 @@
-import { formatCOP, indent, lineLeftRight, separator, wrapText, } from "../format.js";
-import { executePrint } from "../printer.js";
+import { formatCOP, getLineWidth, indent, lineLeftRight, normalizePrintText, separator, wrapText, } from "../format.js";
+import { RawEscPos } from "../raw-escpos.js";
+import { isRawPrinterReady, sendRawBytes } from "../raw-send.js";
 export const MAX_PRINT_COPIES = 5;
 function clampCopies(copies) {
     if (!Number.isFinite(copies))
         return 1;
     return Math.min(MAX_PRINT_COPIES, Math.max(1, Math.floor(copies)));
 }
-function renderComanda(printer, ticket, copyLabel) {
+function txt(value) {
+    return normalizePrintText(String(value ?? ""));
+}
+/** Ticket en texto plano — compatible impresoras POS por red o USB. */
+export function buildComandaRaw(ticket, copyLabel) {
+    const p = new RawEscPos();
     if (copyLabel) {
-        printer.alignCenter();
-        printer.println(copyLabel);
-        printer.newLine();
+        p.alignCenter().line(txt(copyLabel)).blank();
     }
-    printer.alignCenter();
-    printer.bold(true);
-    printer.setTextDoubleHeight();
-    printer.println("GRANIZADOS DE PELICULA");
-    printer.setTextNormal();
-    printer.println("COMANDA");
-    printer.newLine();
-    printer.setTextDoubleHeight();
-    printer.println(`#${ticket.numeroPedido} · ${ticket.hora}`);
-    printer.setTextNormal();
-    printer.newLine();
-    for (const line of wrapText(ticket.destino, 48)) {
-        printer.println(line);
+    p.alignCenter()
+        .line("GRANIZADOS DE PELICULA")
+        .line("COMANDA")
+        .blank()
+        .line(txt(`Pedido #${ticket.numeroPedido}`))
+        .line(txt(ticket.hora))
+        .blank();
+    for (const line of wrapText(txt(ticket.destino))) {
+        p.line(line);
     }
     if (ticket.mesero?.trim()) {
-        printer.println(`Mesero: ${ticket.mesero.trim()}`);
+        p.line(`Mesero: ${txt(ticket.mesero)}`);
     }
-    printer.println(`Pago: ${ticket.formaPago}`);
-    printer.newLine();
-    printer.alignLeft();
-    printer.println(separator());
+    p.line(`Pago: ${txt(ticket.formaPago)}`).blank();
+    p.alignLeft().line(separator());
     for (const item of ticket.items) {
-        const qtyName = `${item.cantidad}x ${item.nombre}`;
-        printer.bold(true);
-        printer.println(lineLeftRight(qtyName, formatCOP(item.precioLinea)));
-        printer.bold(false);
+        const qtyName = `${item.cantidad}x ${txt(item.nombre)}`;
+        p.line(lineLeftRight(qtyName, formatCOP(item.precioLinea)));
         if (item.modificadores?.trim()) {
             for (const part of item.modificadores.split(" · ")) {
-                for (const line of wrapText(part.trim(), 45)) {
-                    printer.println(indent(line));
+                for (const line of wrapText(txt(part.trim()), getLineWidth() - 3)) {
+                    p.line(indent(line));
                 }
             }
         }
     }
-    printer.println(separator());
-    printer.newLine();
+    p.line(separator()).blank();
     if (ticket.comisionDomicilio != null &&
         ticket.comisionDomicilio > 0 &&
         ticket.subtotal !== ticket.total) {
-        printer.println(lineLeftRight("Subtotal", formatCOP(ticket.subtotal)));
-        printer.println(lineLeftRight("Domicilio", formatCOP(ticket.comisionDomicilio)));
+        p.line(lineLeftRight("Subtotal", formatCOP(ticket.subtotal)));
+        p.line(lineLeftRight("Domicilio", formatCOP(ticket.comisionDomicilio)));
     }
-    printer.bold(true);
-    printer.println(lineLeftRight("TOTAL", formatCOP(ticket.total)));
-    printer.bold(false);
+    p.line(lineLeftRight("TOTAL", formatCOP(ticket.total)));
     if (ticket.pagaCon != null && ticket.pagaCon > 0) {
-        printer.println(lineLeftRight("Paga con", formatCOP(ticket.pagaCon)));
+        p.line(lineLeftRight("Paga con", formatCOP(ticket.pagaCon)));
     }
     if (ticket.devuelta != null && ticket.devuelta > 0) {
-        printer.bold(true);
-        printer.println(lineLeftRight("Devuelta", formatCOP(ticket.devuelta)));
-        printer.bold(false);
+        p.line(lineLeftRight("Devuelta", formatCOP(ticket.devuelta)));
     }
-    printer.newLine();
-    printer.alignCenter();
-    printer.println("¡Gracias!");
-    printer.newLine();
-    printer.cut();
+    p.blank().alignCenter().line("Gracias!").feed(4);
+    return p.toBuffer();
+}
+export async function isComandaPrinterReady() {
+    return isRawPrinterReady();
+}
+async function printRawComanda(ticket, copyLabel) {
+    const buffer = buildComandaRaw(ticket, copyLabel);
+    if (!buffer.length) {
+        throw new Error("Ticket vacío.");
+    }
+    await sendRawBytes(buffer);
 }
 export async function printComanda(ticket, copies = 1) {
     const total = clampCopies(copies);
     for (let i = 0; i < total; i++) {
         const copyLabel = total > 1 ? `--- Copia ${i + 1} de ${total} ---` : undefined;
-        await executePrint((printer) => {
-            renderComanda(printer, ticket, copyLabel);
-        });
+        await printRawComanda(ticket, copyLabel);
     }
 }

@@ -1,23 +1,35 @@
-const LINE_WIDTH = 48;
+export function getLineWidth(): number {
+  const width = Number(process.env.PRINTER_WIDTH ?? 32);
+  return Number.isFinite(width) && width > 0 ? width : 32;
+}
+
+/** Solo ASCII — evita bytes raros que bloquean impresoras POS-58C en modo RAW. */
+export function normalizePrintText(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/[^\x20-\x7E]/g, "?");
+}
 
 export function formatCOP(amount: number): string {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "$0";
+  return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
 export function separator(char = "-"): string {
-  return char.repeat(LINE_WIDTH);
+  return char.repeat(getLineWidth());
 }
 
 /** Izquierda + precio alineado a la derecha en 48 columnas. */
 export function lineLeftRight(left: string, right: string): string {
-  const maxLeft = LINE_WIDTH - right.length - 1;
+  const width = getLineWidth();
+  const maxLeft = width - right.length - 1;
   const trimmed =
-    left.length > maxLeft ? `${left.slice(0, maxLeft - 1)}…` : left;
-  const gap = LINE_WIDTH - trimmed.length - right.length;
+    left.length > maxLeft ? `${left.slice(0, maxLeft - 1)}.` : left;
+  const gap = width - trimmed.length - right.length;
   return trimmed + " ".repeat(Math.max(1, gap)) + right;
 }
 
@@ -26,7 +38,7 @@ export function indent(text: string, spaces = 3): string {
   return prefix + text;
 }
 
-export function wrapText(text: string, width = LINE_WIDTH): string[] {
+export function wrapText(text: string, width = getLineWidth()): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let current = "";

@@ -2,8 +2,9 @@ import { loadAppEnv } from "./env.js";
 import cors from "cors";
 loadAppEnv();
 import express from "express";
-import { getEffectivePrintMode, getPrintMode, isPrinterReady, resolvePrinterInterface, } from "./printer.js";
-import { printComanda } from "./templates/comanda.js";
+import { getEffectivePrintMode, getPrintMode, resolvePrinterInterface, setResolvedAutoMode, } from "./printer.js";
+import { resolveAutoPrintMode } from "./raw-send.js";
+import { isComandaPrinterReady, printComanda } from "./templates/comanda.js";
 const PORT = Number(process.env.PORT ?? 9101);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ??
@@ -47,10 +48,13 @@ app.get("/health", async (_req, res) => {
     let printerInterface = null;
     try {
         printerInterface = resolvePrinterInterface();
-        printerReady = await isPrinterReady();
+        printerReady = await isComandaPrinterReady();
         if (!printerReady) {
+            const mode = getEffectivePrintMode();
             printerError =
-                "Impresora no detectada. Revisa USB, encendido y PRINTER_NAME en .env.";
+                mode === "tcp"
+                    ? "Impresora de red no responde. Revisa cable Ethernet, IP y PRINTER_HOST en .env."
+                    : "Impresora no detectada. Ejecuta DETECTAR-CONEXION.bat.";
         }
     }
     catch (err) {
@@ -59,7 +63,9 @@ app.get("/health", async (_req, res) => {
     }
     res.json({
         ok: true,
-        printer: process.env.PRINTER_NAME ?? null,
+        printer: process.env.PRINTER_NAME ?? process.env.PRINTER_HOST ?? null,
+        host: process.env.PRINTER_HOST ?? null,
+        printerPort: process.env.PRINTER_PORT ?? "9100",
         mode: getPrintMode(),
         effectiveMode: getEffectivePrintMode(),
         interface: printerInterface,
@@ -105,7 +111,12 @@ app.post("/print", async (req, res) => {
         res.status(500).json({ ok: false, error: message });
     }
 });
-app.listen(PORT, HOST, () => {
-    console.log(`[print-bridge] http://${HOST}:${PORT} · impresora: ${process.env.PRINTER_NAME ?? "(sin PRINTER_NAME)"}`);
+app.listen(PORT, HOST, async () => {
+    if (getPrintMode() === "auto") {
+        const mode = await resolveAutoPrintMode();
+        setResolvedAutoMode(mode);
+        console.log(`[print-bridge] Modo auto → ${mode}`);
+    }
+    console.log(`[print-bridge] http://${HOST}:${PORT} · ${resolvePrinterInterface()}`);
     console.log(`[print-bridge] Orígenes CORS: ${allowedOrigins.join(", ")}`);
 });

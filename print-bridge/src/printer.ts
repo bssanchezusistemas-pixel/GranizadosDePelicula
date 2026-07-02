@@ -14,26 +14,39 @@ import {
 
 const require = createRequire(import.meta.url);
 
-export type PrintMode = "winspool" | "share" | "native";
+export type PrintMode = "winspool" | "share" | "native" | "tcp" | "auto";
+
+let resolvedAutoMode: PrintMode | null = null;
 
 export function getPrintMode(): PrintMode {
-  const mode = (process.env.PRINTER_MODE ?? "winspool").trim().toLowerCase();
+  const mode = (process.env.PRINTER_MODE ?? "auto").trim().toLowerCase();
   if (mode === "share") return "share";
   if (mode === "native" || mode === "npm") return "native";
+  if (mode === "tcp" || mode === "network" || mode === "ethernet") return "tcp";
+  if (mode === "auto") return "auto";
   return "winspool";
 }
 
-/** Modo real de impresión. En Windows, share/native se redirigen a winspool. */
+/** Modo real de impresión. auto/tcp → red; share/native en Windows → winspool. */
 export function getEffectivePrintMode(): PrintMode {
   const mode = getPrintMode();
+  if (mode === "auto" && resolvedAutoMode) return resolvedAutoMode;
+  if (mode === "tcp") return "tcp";
   if (process.platform === "win32" && (mode === "share" || mode === "native")) {
     return "winspool";
   }
   return mode;
 }
 
+export function setResolvedAutoMode(mode: PrintMode): void {
+  resolvedAutoMode = mode;
+}
+
 export function getPrinterName(): string {
   const name = process.env.PRINTER_NAME?.trim();
+  if (!name && getPrintMode() === "tcp") {
+    return process.env.PRINTER_HOST?.trim() ?? "red";
+  }
   if (!name) {
     throw new Error(
       "Falta PRINTER_NAME en .env. Usa el nombre exacto de Get-Printer en PowerShell.",
@@ -92,6 +105,11 @@ function loadSystemPrinterDriver(): object {
 
 export function resolvePrinterInterface(): string {
   const mode = getEffectivePrintMode();
+  if (mode === "tcp") {
+    const host = process.env.PRINTER_HOST?.trim() ?? "?";
+    const port = process.env.PRINTER_PORT ?? "9100";
+    return `tcp:${host}:${port}`;
+  }
   if (mode === "winspool") {
     return `winspool:${getPrinterName()}`;
   }
@@ -148,6 +166,29 @@ export function createPrinter(): ThermalPrinter {
   return new Printer(config);
 }
 
+const ESC = 0x1b;
+const CMD_INIT = 0x40;
+
+/** POS-58C necesita ESC @ al inicio; node-thermal-printer lo deja al final. */
+function prepareRawBuffer(raw: Buffer): Buffer {
+  let buffer = Buffer.from(raw);
+
+  while (
+    buffer.length >= 2 &&
+    buffer[buffer.length - 2] === ESC &&
+    buffer[buffer.length - 1] === CMD_INIT
+  ) {
+    buffer = buffer.subarray(0, buffer.length - 2);
+  }
+
+  if (buffer.length < 2 || buffer[0] !== ESC || buffer[1] !== CMD_INIT) {
+    buffer = Buffer.concat([Buffer.from([ESC, CMD_INIT]), buffer]);
+  }
+
+  // Avanza papel tras el corte
+  return Buffer.concat([buffer, Buffer.from([ESC, 0x64, 0x04])]);
+}
+
 async function printViaWinSpool(
   fn: (printer: ThermalPrinter) => Promise<void> | void,
 ): Promise<void> {
@@ -161,14 +202,15 @@ async function printViaWinSpool(
 
   const builder = createBufferPrinter();
   await fn(builder);
-  const buffer = builder.getBuffer();
-  if (!buffer?.length) {
+  const raw = builder.getBuffer();
+  if (!raw?.length) {
     throw new Error(
       "Ticket vacío — no se generó buffer de impresión. Revisa PRINTER_WIDTH en .env.",
     );
   }
+  const buffer = prepareRawBuffer(raw);
   console.log(
-    `[print-bridge] Enviando ${buffer.length} bytes a "${name}"`,
+    `[print-bridge] Enviando ${buffer.length} bytes a "${name}" (raw ${raw.length})`,
   );
   await printRawWinSpool(name, buffer);
 }

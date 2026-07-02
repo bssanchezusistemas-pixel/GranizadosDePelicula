@@ -18,11 +18,19 @@ if not exist "node\node.exe" (
   exit /b 1
 )
 
-if not exist "app\node_modules\printer" (
+REM winspool (recomendado) no usa el paquete npm "printer"
+findstr /I /B "PRINTER_MODE=native" .env >nul 2>&1
+if %errorlevel%==0 if not exist "app\node_modules\printer" (
   echo.
-  echo AVISO: Falta el driver de impresora.
-  echo Ejecuta INSTALAR.bat una vez en esta carpeta.
+  echo AVISO: Modo native requiere INSTALAR.bat en esta carpeta.
   echo.
+) else (
+  findstr /I /B "PRINTER_MODE=npm" .env >nul 2>&1
+  if %errorlevel%==0 if not exist "app\node_modules\printer" (
+    echo.
+    echo AVISO: Modo native requiere INSTALAR.bat en esta carpeta.
+    echo.
+  )
 )
 
 echo ========================================

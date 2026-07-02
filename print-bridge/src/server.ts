@@ -6,10 +6,11 @@ import express from "express";
 import {
   getEffectivePrintMode,
   getPrintMode,
-  isPrinterReady,
   resolvePrinterInterface,
+  setResolvedAutoMode,
 } from "./printer.js";
-import { printComanda } from "./templates/comanda.js";
+import { resolveAutoPrintMode } from "./raw-send.js";
+import { isComandaPrinterReady, printComanda } from "./templates/comanda.js";
 import type { OrderTicket } from "./types.js";
 
 const PORT = Number(process.env.PORT ?? 9101);
@@ -66,10 +67,13 @@ app.get("/health", async (_req, res) => {
 
   try {
     printerInterface = resolvePrinterInterface();
-    printerReady = await isPrinterReady();
+    printerReady = await isComandaPrinterReady();
     if (!printerReady) {
+      const mode = getEffectivePrintMode();
       printerError =
-        "Impresora no detectada. Revisa USB, encendido y PRINTER_NAME en .env.";
+        mode === "tcp"
+          ? "Impresora de red no responde. Revisa cable Ethernet, IP y PRINTER_HOST en .env."
+          : "Impresora no detectada. Ejecuta DETECTAR-CONEXION.bat.";
     }
   } catch (err) {
     printerError =
@@ -78,7 +82,9 @@ app.get("/health", async (_req, res) => {
 
   res.json({
     ok: true,
-    printer: process.env.PRINTER_NAME ?? null,
+    printer: process.env.PRINTER_NAME ?? process.env.PRINTER_HOST ?? null,
+    host: process.env.PRINTER_HOST ?? null,
+    printerPort: process.env.PRINTER_PORT ?? "9100",
     mode: getPrintMode(),
     effectiveMode: getEffectivePrintMode(),
     interface: printerInterface,
@@ -131,9 +137,15 @@ app.post("/print", async (req, res) => {
   }
 });
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, HOST, async () => {
+  if (getPrintMode() === "auto") {
+    const mode = await resolveAutoPrintMode();
+    setResolvedAutoMode(mode);
+    console.log(`[print-bridge] Modo auto → ${mode}`);
+  }
+
   console.log(
-    `[print-bridge] http://${HOST}:${PORT} · impresora: ${process.env.PRINTER_NAME ?? "(sin PRINTER_NAME)"}`,
+    `[print-bridge] http://${HOST}:${PORT} · ${resolvePrinterInterface()}`,
   );
   console.log(`[print-bridge] Orígenes CORS: ${allowedOrigins.join(", ")}`);
 });

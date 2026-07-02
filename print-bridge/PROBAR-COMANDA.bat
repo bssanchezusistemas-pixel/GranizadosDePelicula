@@ -12,6 +12,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "try { $r = Invoke-RestMethod -Uri 'http://127.0.0.1:9101/print' -Method POST -Body $body -ContentType 'application/json'; Write-Host 'OK:' ($r | ConvertTo-Json) -ForegroundColor Green } catch { Write-Host 'ERROR:' $_.Exception.Message -ForegroundColor Red; if ($_.ErrorDetails.Message) { Write-Host $_.ErrorDetails.Message } }"
 
 echo.
-echo Si esto imprime pero /caja no, el problema es el navegador (CORS / red local).
+echo Si no imprime, prueba PROBAR-COMANDA-DIRECT.bat (sin servicio HTTP).
 echo.
 pause
