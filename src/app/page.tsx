@@ -1,6 +1,6 @@
 import { Header } from "@/components/Header";
 import { HeroScroll } from "@/components/HeroScroll";
-import { MenuSection } from "@/components/MenuSection";
+import { MenuSectionLoader } from "@/components/MenuSectionLoader";
 import { LocationSection } from "@/components/LocationSection";
 import { CartDrawer } from "@/components/CartDrawer";
 import { CartFlyAnimation } from "@/components/CartFlyAnimation";
@@ -15,7 +15,7 @@ export default function Home() {
       <main>
         <HeroScroll />
         <MarqueeStrip />
-        <MenuSection />
+        <MenuSectionLoader />
         <LocationSection />
       </main>
       <Footer />

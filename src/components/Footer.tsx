@@ -13,12 +13,6 @@ export function Footer() {
         <p className="text-[10px] uppercase tracking-[0.3em] text-white/25">
           Demo premium · Precios referenciales
         </p>
-        <a
-          href="/caja/domicilios"
-          className="mt-2 text-[10px] uppercase tracking-[0.2em] text-white/20 transition hover:text-neon"
-        >
-          Panel domicilios
-        </a>
       </div>
     </footer>
   );

@@ -11,7 +11,6 @@ import {
 import {
   formatCOP,
   getLinePrice,
-  MENU_CATEGORIES,
   type MenuCategory,
   type MenuCategoryId,
   type MenuItem,
@@ -21,11 +20,11 @@ import { useCart } from "@/context/CartContext";
 
 const NAV_OFFSET = 112;
 
-export function MenuSection() {
+export function MenuSection({ categories }: { categories: MenuCategory[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const categoryRefs = useRef<Partial<Record<MenuCategoryId, HTMLElement>>>({});
   const [activeCategory, setActiveCategory] = useState<MenuCategoryId>(
-    MENU_CATEGORIES[0].id,
+    categories[0]?.id ?? "helados",
   );
   const { addItem } = useCart();
 
@@ -98,7 +97,7 @@ export function MenuSection() {
           className="sticky top-[68px] z-40 -mx-4 mb-8 border-b border-white/5 bg-cinema-dark/95 backdrop-blur-md sm:top-[72px] sm:mb-10"
         >
           <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 py-2.5 sm:flex-wrap sm:overflow-visible sm:py-3">
-            {MENU_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
@@ -117,7 +116,7 @@ export function MenuSection() {
         </nav>
 
         <div className="space-y-10 sm:space-y-16 md:space-y-20">
-          {MENU_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <MenuCategoryBlock
               key={category.id}
               category={category}

@@ -1,22 +1,17 @@
 import {
-  MENU_CATEGORIES,
   formatCartLineName,
   getLinePrice,
   type MenuItem,
 } from "@/data/menu";
+import { buildMenuIndex } from "@/lib/menu/get-menu";
 import type { ItemPedidoCarrito } from "@/data/caja";
 
-const MENU_BY_ID = new Map<string, MenuItem>();
-
-for (const cat of MENU_CATEGORIES) {
-  for (const item of cat.items) {
-    MENU_BY_ID.set(item.id, item);
-  }
-}
-
-export function resolveMenuUnitPrice(productoId: string): number | null {
+export async function resolveMenuUnitPrice(
+  productoId: string,
+): Promise<number | null> {
+  const menuById = await buildMenuIndex();
   const [baseId, sizeLabel] = productoId.split("::");
-  const item = MENU_BY_ID.get(baseId);
+  const item = menuById.get(baseId);
   if (!item) return null;
 
   if (sizeLabel) {
@@ -28,9 +23,12 @@ export function resolveMenuUnitPrice(productoId: string): number | null {
   return price > 0 ? price : null;
 }
 
-export function resolveMenuLineName(productoId: string): string | null {
+export async function resolveMenuLineName(
+  productoId: string,
+): Promise<string | null> {
+  const menuById = await buildMenuIndex();
   const [baseId, sizeLabel] = productoId.split("::");
-  const item = MENU_BY_ID.get(baseId);
+  const item = menuById.get(baseId);
   if (!item) return null;
 
   if (sizeLabel) {
@@ -42,27 +40,38 @@ export function resolveMenuLineName(productoId: string): string | null {
   return item.name;
 }
 
-/** Valida precios y nombres contra el menú; devuelve items saneados. */
-export function sanitizeCartItems(items: ItemPedidoCarrito[]): ItemPedidoCarrito[] {
-  return items.map((item) => {
-    const expectedPrice = resolveMenuUnitPrice(item.productoId);
-    if (expectedPrice === null) {
-      throw new Error(`Producto no válido: ${item.productoId}`);
-    }
+export async function sanitizeCartItems(
+  items: ItemPedidoCarrito[],
+): Promise<ItemPedidoCarrito[]> {
+  return Promise.all(
+    items.map(async (item) => {
+      const expectedPrice = await resolveMenuUnitPrice(item.productoId);
+      if (expectedPrice === null) {
+        throw new Error(`Producto no válido: ${item.productoId}`);
+      }
 
-    const expectedName = resolveMenuLineName(item.productoId);
-    if (!expectedName) {
-      throw new Error(`Producto no válido: ${item.productoId}`);
-    }
+      const expectedName = await resolveMenuLineName(item.productoId);
+      if (!expectedName) {
+        throw new Error(`Producto no válido: ${item.productoId}`);
+      }
 
-    if (item.cantidad < 1 || item.cantidad > 99) {
-      throw new Error("Cantidad no válida.");
-    }
+      if (item.cantidad < 1 || item.cantidad > 99) {
+        throw new Error("Cantidad no válida.");
+      }
 
-    return {
-      ...item,
-      nombre: expectedName,
-      precioUnitario: expectedPrice,
-    };
-  });
+      return {
+        ...item,
+        nombre: expectedName,
+        precioUnitario: expectedPrice,
+      };
+    }),
+  );
+}
+
+export async function getMenuItemFromIndex(
+  productoId: string,
+): Promise<MenuItem | null> {
+  const [baseId] = productoId.split("::");
+  const menuById = await buildMenuIndex();
+  return menuById.get(baseId) ?? null;
 }

@@ -385,7 +385,7 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
   const mesero = session.rol === "mesero" ? session : null;
   const supabase = createServiceClient();
 
-  const items = sanitizeCartItems(input.items);
+  const items = await sanitizeCartItems(input.items);
 
   if (items.length === 0) {
     throw new Error("El carrito está vacío.");

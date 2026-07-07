@@ -33,28 +33,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
-  const isLegacyLogin = request.nextUrl.pathname === "/admin/login";
+  const pathname = request.nextUrl.pathname;
+  const isLogin = pathname === "/admin/login";
 
-  if (isLegacyLogin) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/caja/login";
-    return NextResponse.redirect(loginUrl);
+  if (isLogin && user && isSupabaseAdmin(user)) {
+    return NextResponse.redirect(new URL("/admin/productos", request.url));
   }
 
-  if (isAdminRoute && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/caja/login";
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  if (isAdminRoute && user && !isSupabaseAdmin(user)) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/caja/login";
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    loginUrl.searchParams.set("error", "sin_permiso");
-    return NextResponse.redirect(loginUrl);
+  if (!isLogin && pathname.startsWith("/admin")) {
+    if (!user) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/admin/login";
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (!isSupabaseAdmin(user)) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/admin/login";
+      loginUrl.searchParams.set("error", "sin_permiso");
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   return supabaseResponse;

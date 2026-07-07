@@ -1,53 +1,55 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { MESERO_COOKIE } from "@/lib/caja-session";
-import { safeRedirectPath } from "@/lib/safe-redirect";
-import { unsealCajaSession } from "@/lib/session-crypto";
+
+const ADMIN_LOGIN = "/admin/login";
+
+function redirectTo(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  return NextResponse.redirect(url);
+}
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  const isCajaRoute = pathname.startsWith("/caja");
-  const isCajaLogin = pathname === "/caja/login";
-  const isCajaRegistro = pathname.startsWith("/caja/registro");
-  const isCajaDomicilios = pathname.startsWith("/caja/domicilios");
-  const isCocinaRoute =
-    pathname === "/cocina" || pathname.startsWith("/cocina/");
-
-  const session = await unsealCajaSession(
-    request.cookies.get(MESERO_COOKIE)?.value,
-  );
-
-  if ((isCajaRoute && !isCajaLogin) || isCocinaRoute) {
-    if (!session) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/caja/login";
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+  // Rutas legacy → admin simplificado
+  if (pathname === "/caja/login" || pathname === "/admin/login") {
+    if (pathname === "/caja/login") {
+      return redirectTo(request, ADMIN_LOGIN);
     }
+    return updateSession(request);
   }
 
-  if (isCajaRegistro && session?.rol !== "admin") {
-    return NextResponse.redirect(new URL("/caja", request.url));
+  if (pathname === "/caja/registro") {
+    return redirectTo(request, "/admin/registro");
   }
 
-  if (isCajaDomicilios && session?.rol !== "admin") {
-    return NextResponse.redirect(new URL("/caja", request.url));
+  const legacyDisabled = [
+    "/caja",
+    "/caja/mesas",
+    "/caja/domicilios",
+    "/cocina",
+    "/admin/meseros",
+    "/admin/mesas",
+    "/admin/domicilios",
+  ];
+
+  if (
+    legacyDisabled.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`),
+    )
+  ) {
+    return redirectTo(request, "/admin/productos");
   }
 
-  if (isCajaLogin && session) {
-    const next = safeRedirectPath(
-      request.nextUrl.searchParams.get("next"),
-      "/caja",
-    );
-    if (!next.startsWith("/admin")) {
-      return NextResponse.redirect(new URL(next, request.url));
-    }
+  if (pathname.startsWith("/admin")) {
+    return updateSession(request);
   }
 
-  return updateSession(request);
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/caja/:path*", "/cocina"],
+  matcher: ["/admin/:path*", "/caja/:path*", "/cocina", "/cocina/:path*"],
 };
