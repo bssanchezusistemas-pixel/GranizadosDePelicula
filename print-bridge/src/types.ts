@@ -1,3 +1,6 @@
+export type PrintStation = "bar" | "cocina" | "caja";
+export type TicketKind = "comanda" | "recibo" | "completo";
+
 export interface OrderTicketItem {
   cantidad: number;
   nombre: string;
@@ -17,4 +20,6 @@ export interface OrderTicket {
   total: number;
   pagaCon?: number;
   devuelta?: number;
+  station?: PrintStation;
+  kind?: TicketKind;
 }

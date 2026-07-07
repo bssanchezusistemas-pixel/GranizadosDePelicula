@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -203,12 +204,25 @@ function MenuItemCard({
         } as CSSProperties
       }
     >
-      <div
-        className="h-1.5 w-full"
-        style={{
-          background: `linear-gradient(90deg, ${accentColor}, ${accentColor}66)`,
-        }}
-      />
+      {item.image ? (
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-cinema-dark">
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div
+          className="h-1.5 w-full"
+          style={{
+            background: `linear-gradient(90deg, ${accentColor}, ${accentColor}66)`,
+          }}
+        />
+      )}
 
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         <div className="mb-3 flex items-start justify-between gap-3">

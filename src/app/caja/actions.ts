@@ -220,6 +220,47 @@ export async function getPedidoParaCobroMesaAction(ubicacionId: string): Promise
   };
 }
 
+export async function getPedidoMesaParaImpresionAction(
+  ubicacionId: string,
+): Promise<PedidoCaja | null> {
+  await requireCajaSession();
+  const supabase = createServiceClient();
+
+  const { data: ubicacion, error } = await supabase
+    .from("ubicaciones")
+    .select("pedido_abierto_id")
+    .eq("id", ubicacionId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  if (!ubicacion.pedido_abierto_id) return null;
+
+  const { data: pedido, error: errPed } = await supabase
+    .from("pedidos_caja")
+    .select(PEDIDO_CAJA_DETALLE)
+    .eq("id", ubicacion.pedido_abierto_id)
+    .single();
+
+  if (errPed) throw new Error(errPed.message);
+  return pedido as PedidoCaja;
+}
+
+export async function getPedidoParaImpresionAction(
+  pedidoId: string,
+): Promise<PedidoCaja | null> {
+  await requireCajaSession();
+  const supabase = createServiceClient();
+
+  const { data: pedido, error } = await supabase
+    .from("pedidos_caja")
+    .select(PEDIDO_CAJA_DETALLE)
+    .eq("id", pedidoId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return pedido as PedidoCaja;
+}
+
 export async function getDomiciliariosConJornadaAction(): Promise<
   DomiciliarioConJornada[]
 > {

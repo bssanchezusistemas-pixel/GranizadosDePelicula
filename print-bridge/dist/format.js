@@ -1,6 +1,19 @@
 export function getLineWidth() {
-    const width = Number(process.env.PRINTER_WIDTH ?? 32);
-    return Number.isFinite(width) && width > 0 ? width : 32;
+    const explicit = Number(process.env.PRINTER_WIDTH);
+    if (Number.isFinite(explicit) && explicit > 0)
+        return explicit;
+    const name = (process.env.PRINTER_NAME ?? "").toLowerCase();
+    // LR2000 / 80 mm ≈ 48 caracteres; 58 mm ≈ 32
+    if (/lr2000|lr1100|pos-80|80c|80mm/.test(name))
+        return 48;
+    if (/pos-58|58c|58mm/.test(name))
+        return 32;
+    return 42;
+}
+export function clampLine(text, width = getLineWidth()) {
+    if (text.length <= width)
+        return text;
+    return width > 1 ? `${text.slice(0, width - 1)}.` : text.slice(0, width);
 }
 /** Solo ASCII — evita bytes raros que bloquean impresoras POS-58C en modo RAW. */
 export function normalizePrintText(text) {
@@ -20,13 +33,16 @@ export function formatCOP(amount) {
 export function separator(char = "-") {
     return char.repeat(getLineWidth());
 }
-/** Izquierda + precio alineado a la derecha en 48 columnas. */
+/** Izquierda + precio alineado a la derecha. */
 export function lineLeftRight(left, right) {
     const width = getLineWidth();
-    const maxLeft = width - right.length - 1;
-    const trimmed = left.length > maxLeft ? `${left.slice(0, maxLeft - 1)}.` : left;
-    const gap = width - trimmed.length - right.length;
-    return trimmed + " ".repeat(Math.max(1, gap)) + right;
+    const price = clampLine(right, width);
+    if (price.length >= width)
+        return price;
+    const maxLeft = width - price.length - 1;
+    const trimmed = clampLine(left, Math.max(1, maxLeft));
+    const gap = width - trimmed.length - price.length;
+    return trimmed + " ".repeat(Math.max(1, gap)) + price;
 }
 export function indent(text, spaces = 3) {
     const prefix = " ".repeat(spaces);

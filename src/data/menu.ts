@@ -29,6 +29,8 @@ export interface MenuItem {
   sizes?: MenuItemSize[];
   image?: string;
   badge?: string;
+  /** Solo menú público (WhatsApp); no aparece en /caja. */
+  publicOnly?: boolean;
 }
 
 export interface MenuCategory {
@@ -64,22 +66,25 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     items: [
       {
         id: "chol-mega",
-        name: "Mega Cholao",
+        name: "Megacholado",
         description: "Cholao grande con fruta, leche condensada y toppings.",
         price: 17000,
+        image: "/menu/mega-cholao.webp",
         badge: "Estrella",
       },
       {
         id: "chol-grande",
-        name: "Cholao Grande",
-        description: "Porción grande de cholao tradicional.",
+        name: "Cholado grande con helado",
+        description: "Cholao grande con helado, fruta fresca y toppings.",
         price: 11000,
+        image: "/menu/cholado-grande-con-helado.webp",
       },
       {
         id: "chol-pequeno",
-        name: "Cholao Pequeño",
-        description: "Porción pequeña de cholao.",
+        name: "Cholado pequeño con helado",
+        description: "Porción pequeña de cholao con helado, fruta fresca y toppings.",
         price: 8000,
+        image: "/menu/cholado-pequeno-con-helado.webp",
       },
       {
         id: "chol-tradicional",
@@ -98,11 +103,12 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "rasp-sencillo",
-        name: "Raspao Sencillo",
+        name: "Raspado sencillo",
         description: "Raspado sencillo.",
+        image: "/menu/raspado-sencillo.webp",
         sizes: [
-          { label: "Pequeño", price: 4000 },
-          { label: "Grande", price: 6000 },
+          { label: "13 oz", price: 4000 },
+          { label: "16 oz", price: 7000 },
         ],
       },
       {
@@ -127,6 +133,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         id: "gran-oreo",
         name: "Granizado de Oreo",
         description: "Granizado sabor Oreo.",
+        image: "/menu/granizado-oreo.webp",
         price: 11000,
       },
       {
@@ -139,6 +146,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         id: "gran-cafe",
         name: "Granizado de Café",
         description: "Granizado sabor café.",
+        image: "/menu/granizado-cafe.webp",
         price: 11000,
       },
       {
@@ -146,6 +154,75 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         name: "Granizado con Helado",
         description: "Granizado con helado.",
         price: 14000,
+      },
+      {
+        id: "hel-fresas-mm",
+        name: "Fresas con M&M",
+        description: "Fresas con crema, chantilly y M&M.",
+        image: "/menu/fresas-mm.webp",
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 17000 },
+        ],
+      },
+      {
+        id: "hel-fresas-chocolate",
+        name: "Fresas con chocolate",
+        description: "Fresas con crema, chocolate y toppings.",
+        image: "/menu/fresas-chocolate.webp",
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 17000 },
+        ],
+      },
+      {
+        id: "hel-fresas-frambuesa",
+        name: "Fresas con frambuesa",
+        description: "Fresas con frambuesa, crema y toppings.",
+        image: "/menu/fresas-frambuesa.webp",
+        sizes: [
+          { label: "13 oz", price: 15000 },
+          { label: "16 oz", price: 18000 },
+        ],
+      },
+      {
+        id: "hel-fresa-banano",
+        name: "Fresa banano",
+        description: "Fresas con banano, crema y toppings.",
+        image: "/menu/fresa-banano.webp",
+        publicOnly: true,
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 18000 },
+        ],
+      },
+      {
+        id: "hel-fresas-chocorramo",
+        name: "Fresas con chocorramo",
+        description: "Fresas con crema, chantilly y chocorramo.",
+        image: "/menu/fresas-chocorramo.webp",
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 17000 },
+        ],
+      },
+      {
+        id: "hel-duraznos-crema",
+        name: "Duraznos con crema",
+        description: "Duraznos frescos con crema y chantilly.",
+        image: "/menu/duraznos-crema.webp",
+        sizes: [
+          { label: "13 oz", price: 15000 },
+          { label: "16 oz", price: 18000 },
+        ],
+      },
+      {
+        id: "hel-ensalada-frutas",
+        name: "Ensalada de frutas",
+        description: "Ensalada de frutas con helado y toppings.",
+        price: 10000,
+        image: "/menu/ensalada-frutas.webp",
+        publicOnly: true,
       },
       {
         id: "gran-mocca-caramelo",
@@ -185,9 +262,10 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "gran-maracubiche",
-        name: "Maracubiche",
+        name: "Granizado Maracubiche",
         description: "Granizado maracuyá y mango biche.",
         price: 11000,
+        image: "/menu/granizado-maracubiche.webp",
       },
       {
         id: "gran-frutos-amarillos",
@@ -403,12 +481,47 @@ export const MENU_CATEGORIES: MenuCategory[] = [
           { label: "Grande", price: 6000 },
         ],
       },
-      { id: "lim-cereza", name: "Limonada Cereza", description: "Limonada sabor cereza.", price: 10000 },
+      {
+        id: "lim-cereza",
+        name: "Limonada Cerezada",
+        description: "Limonada sabor cereza.",
+        price: 10000,
+        image: "/menu/limonada-cerezada.webp",
+      },
       { id: "lim-coco", name: "Limonada Coco", description: "Limonada sabor coco.", price: 10000 },
       { id: "lim-hierba", name: "Limonada Hierba Buena", description: "Limonada con hierba buena.", price: 10000 },
       { id: "lim-coco-cereza", name: "Limonada Coco Cereza", description: "Limonada coco y cereza.", price: 10000 },
       { id: "lim-coco-maracuya", name: "Limonada Coco Maracuyá", description: "Limonada coco y maracuyá.", price: 10000 },
       { id: "lim-pina", name: "Limonada Piña Colada", description: "Limonada piña colada.", price: 10000 },
+      {
+        id: "lim-maracumango",
+        name: "Maracumango",
+        description: "Bebida de maracuyá y mango.",
+        price: 10000,
+        image: "/menu/maracumango.webp",
+        publicOnly: true,
+      },
+      {
+        id: "lim-maracupina",
+        name: "Maracupiña",
+        description: "Bebida de maracuyá y piña.",
+        price: 10000,
+        publicOnly: true,
+      },
+      {
+        id: "lim-maracululo",
+        name: "Maracululo",
+        description: "Bebida de maracuyá y lulo.",
+        price: 10000,
+        publicOnly: true,
+      },
+      {
+        id: "lim-lulada",
+        name: "Lulada",
+        description: "Bebida refrescante de lulo con fruta y especias.",
+        price: 10000,
+        image: "/menu/lulada.webp",
+      },
     ],
   },
   {

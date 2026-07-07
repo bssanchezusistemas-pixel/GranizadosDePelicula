@@ -6,6 +6,10 @@ import { formatHoraBogota } from "@/lib/dates";
 import { cancelarPedidoCajaAction } from "@/app/caja/actions";
 import { CancelPedidoCajaModal } from "@/components/caja/CancelPedidoCajaModal";
 import {
+  formatPrintErrors,
+  printRecogerReceipt,
+} from "@/lib/print/print-jobs";
+import {
   destinoPedido,
   FORMA_PAGO_LABEL,
   resumirItems,
@@ -78,6 +82,8 @@ export function SalesTable({
   const [pedidoACancelar, setPedidoACancelar] = useState<PedidoCaja | null>(
     null,
   );
+  const [imprimiendoId, setImprimiendoId] = useState<string | null>(null);
+  const [printAviso, setPrintAviso] = useState<string | null>(null);
 
   const productoSeleccionado = useMemo(
     () => PRODUCTOS_MENU.find((p) => p.id === productoFiltroId) ?? null,
@@ -132,8 +138,29 @@ export function SalesTable({
     onPedidoCancelado?.();
   }
 
+  async function imprimirReciboRecoger(p: PedidoCaja) {
+    if (!p.items?.length) return;
+    setImprimiendoId(p.id);
+    setPrintAviso(null);
+    try {
+      const results = await printRecogerReceipt({
+        pedido: p,
+        items: p.items,
+      });
+      const err = formatPrintErrors(results);
+      if (err) setPrintAviso(err);
+    } finally {
+      setImprimiendoId(null);
+    }
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+      {printAviso && (
+        <div className="border-b border-amber-800/40 bg-amber-900/20 px-5 py-3 text-sm text-amber-200">
+          {printAviso}
+        </div>
+      )}
       <div className="border-b border-zinc-800 px-5 py-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-bold uppercase tracking-wide">
@@ -283,13 +310,28 @@ export function SalesTable({
                   </td>
                   <td className="px-5 py-3.5">
                     {!cancelado && (
-                      <button
-                        type="button"
-                        onClick={() => setPedidoACancelar(p)}
-                        className="rounded border border-zinc-700 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-400 hover:border-amber-600 hover:text-amber-300"
-                      >
-                        Cancelar
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        {p.tipo_entrega === "recoger" &&
+                          p.estado === "cerrado" && (
+                            <button
+                              type="button"
+                              disabled={imprimiendoId === p.id}
+                              onClick={() => imprimirReciboRecoger(p)}
+                              className="rounded border border-neon/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-neon hover:bg-neon/10 disabled:opacity-50"
+                            >
+                              {imprimiendoId === p.id
+                                ? "..."
+                                : "Recibo"}
+                            </button>
+                          )}
+                        <button
+                          type="button"
+                          onClick={() => setPedidoACancelar(p)}
+                          className="rounded border border-zinc-700 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-400 hover:border-amber-600 hover:text-amber-300"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

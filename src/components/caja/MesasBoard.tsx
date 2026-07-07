@@ -3,11 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatCOP } from "@/lib/currency";
 import {
+  getPedidoMesaParaImpresionAction,
   getUbicacionesAction,
   liberarUbicacionAction,
   type ResultadoLiberarUbicacion,
 } from "@/app/caja/actions";
 import { CobroMesaModal } from "@/components/caja/CobroMesaModal";
+import {
+  formatPrintErrors,
+  printMesaReceipt,
+} from "@/lib/print/print-jobs";
 import type { Ubicacion } from "@/data/caja";
 
 export function MesasBoard() {
@@ -18,6 +23,7 @@ export function MesasBoard() {
   const [ultimaLiberacion, setUltimaLiberacion] =
     useState<ResultadoLiberarUbicacion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [printAviso, setPrintAviso] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -37,6 +43,7 @@ export function MesasBoard() {
 
   function abrirLiberar(ubicacion: Ubicacion) {
     setError(null);
+    setPrintAviso(null);
     setUbicacionModal(ubicacion);
   }
 
@@ -44,11 +51,33 @@ export function MesasBoard() {
     if (!ubicacionModal) return;
     setLiberandoId(ubicacionModal.id);
     setError(null);
+    setPrintAviso(null);
     try {
+      const pedidoImpresion = await getPedidoMesaParaImpresionAction(
+        ubicacionModal.id,
+      );
+
       const resultado = await liberarUbicacionAction(
         ubicacionModal.id,
         pagaCon,
       );
+
+      if (pedidoImpresion?.items?.length) {
+        const results = await printMesaReceipt({
+          pedido: {
+            ...pedidoImpresion,
+            total: resultado.total ?? pedidoImpresion.total,
+            paga_con: resultado.pagaCon ?? pedidoImpresion.paga_con,
+            devuelta: resultado.devuelta ?? pedidoImpresion.devuelta,
+          },
+          items: pedidoImpresion.items,
+          pagaCon: resultado.pagaCon ?? undefined,
+          devuelta: resultado.devuelta ?? undefined,
+        });
+        const err = formatPrintErrors(results);
+        if (err) setPrintAviso(`Mesa liberada, pero: ${err}`);
+      }
+
       setUltimaLiberacion(resultado);
       setUbicacionModal(null);
       await cargar();
@@ -72,6 +101,12 @@ export function MesasBoard() {
       {error && (
         <div className="rounded-xl border border-red-700/40 bg-red-900/15 px-5 py-3 text-sm font-bold text-red-300">
           {error}
+        </div>
+      )}
+
+      {printAviso && (
+        <div className="rounded-xl border border-amber-700/40 bg-amber-900/15 px-5 py-3 text-sm text-amber-200">
+          {printAviso}
         </div>
       )}
 

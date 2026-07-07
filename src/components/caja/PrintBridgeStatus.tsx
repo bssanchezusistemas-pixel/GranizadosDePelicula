@@ -24,18 +24,32 @@ export function PrintBridgeStatus() {
         return;
       }
 
-      if (health.printerReady) {
+      const barOk = health.stations?.bar?.ready ?? health.printerReady;
+      const cocinaOk = health.stations?.cocina?.ready ?? health.printerReady;
+
+      if (barOk && cocinaOk) {
         setStatus("ready");
-        setDetail(health.printer ? `Impresora: ${health.printer}` : null);
+        setDetail("Bar (USB) + Cocina (red) listas");
+        return;
+      }
+
+      if (barOk || cocinaOk || health.printerReady) {
+        setStatus("service");
+        const parts: string[] = [];
+        if (!barOk) parts.push("Bar USB sin respuesta");
+        if (!cocinaOk) parts.push("Cocina red sin respuesta");
+        setDetail(
+          parts.join(" · ") ||
+            health.printerError ||
+            "Revisa impresoras en .env",
+        );
         return;
       }
 
       setStatus("service");
       setDetail(
         health.printerError ??
-          (health.printer
-            ? `Servicio activo pero no detecta "${health.printer}"`
-            : "Configura PRINTER_NAME en .env del print-bridge"),
+          "Configura PRINTER_BAR_NAME y PRINTER_COCINA_HOST en .env",
       );
     }
 
@@ -51,10 +65,10 @@ export function PrintBridgeStatus() {
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white/40"
-        title="Comprobando impresora..."
+        title="Comprobando impresoras..."
       >
         <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
-        Impresora
+        Impresoras
       </span>
     );
   }
@@ -75,10 +89,10 @@ export function PrintBridgeStatus() {
 
   const label =
     status === "ready"
-      ? "Impresora lista"
+      ? "Impresoras listas"
       : status === "service"
-        ? "Driver / impresora"
-        : "Impresora offline";
+        ? "Impresora parcial"
+        : "Impresoras offline";
 
   return (
     <span

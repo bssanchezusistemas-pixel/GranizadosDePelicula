@@ -1,9 +1,18 @@
 export function getLineWidth(): number {
-  const width = Number(process.env.PRINTER_WIDTH ?? 32);
-  return Number.isFinite(width) && width > 0 ? width : 32;
+  const explicit = Number(process.env.PRINTER_WIDTH);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+  const name = (process.env.PRINTER_NAME ?? "").toLowerCase();
+  // LR2000 / 80 mm ≈ 48 caracteres; 58 mm ≈ 32
+  if (/lr2000|lr1100|pos-80|80c|80mm/.test(name)) return 48;
+  if (/pos-58|58c|58mm/.test(name)) return 32;
+  return 42;
 }
 
-/** Solo ASCII — evita bytes raros que bloquean impresoras POS-58C en modo RAW. */
+export function clampLine(text: string, width = getLineWidth()): string {
+  if (text.length <= width) return text;
+  return width > 1 ? `${text.slice(0, width - 1)}.` : text.slice(0, width);
+}
 export function normalizePrintText(text: string): string {
   return text
     .normalize("NFD")
@@ -19,23 +28,29 @@ export function formatCOP(amount: number): string {
   return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
-export function separator(char = "-"): string {
-  return char.repeat(getLineWidth());
+export function separator(char = "-", width = getLineWidth()): string {
+  return char.repeat(width);
 }
 
-/** Izquierda + precio alineado a la derecha en 48 columnas. */
-export function lineLeftRight(left: string, right: string): string {
-  const width = getLineWidth();
-  const maxLeft = width - right.length - 1;
-  const trimmed =
-    left.length > maxLeft ? `${left.slice(0, maxLeft - 1)}.` : left;
-  const gap = width - trimmed.length - right.length;
-  return trimmed + " ".repeat(Math.max(1, gap)) + right;
+/** Izquierda + precio alineado a la derecha. */
+export function lineLeftRight(
+  left: string,
+  right: string,
+  width = getLineWidth(),
+): string {
+  const price = clampLine(right, width);
+  if (price.length >= width) return price;
+
+  const maxLeft = width - price.length - 1;
+  const trimmed = clampLine(left, Math.max(1, maxLeft));
+  const gap = width - trimmed.length - price.length;
+  return trimmed + " ".repeat(Math.max(1, gap)) + price;
 }
 
-export function indent(text: string, spaces = 3): string {
+export function indent(text: string, spaces = 3, width = getLineWidth()): string {
   const prefix = " ".repeat(spaces);
-  return prefix + text;
+  const line = prefix + text;
+  return line.length > width ? line.slice(0, width) : line;
 }
 
 export function wrapText(text: string, width = getLineWidth()): string[] {

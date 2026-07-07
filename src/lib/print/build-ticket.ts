@@ -86,7 +86,10 @@ export function buildOrderTicket(input: BuildTicketInput): OrderTicket {
     }),
     subtotal,
     comisionDomicilio,
-    total,
+    total:
+      tipoEntrega === "domicilio"
+        ? Number(pedido.total)
+        : subtotal,
     pagaCon: pagaConVal,
     devuelta: devueltaVal,
   };

@@ -1,6 +1,11 @@
+import { clampLine, getLineWidth } from "./format.js";
+function shouldCut() {
+    const v = (process.env.PRINTER_CUT ?? "full").trim().toLowerCase();
+    return v !== "false" && v !== "0" && v !== "none";
+}
 /**
- * Ticket mínimo — solo texto ASCII + avance de papel (como PROBAR-IMPRESORA).
- * Sin negrita, sin doble alto, sin corte (algunas POS-58C se bloquean con eso).
+ * ESC/POS para impresoras de caja (LR2000, etc.).
+ * Ancho controlado por PRINTER_WIDTH; corte al final con PRINTER_CUT.
  */
 export class RawEscPos {
     chunks = [];
@@ -20,7 +25,7 @@ export class RawEscPos {
         return this;
     }
     line(text) {
-        this.chunks.push(Buffer.from(`${text}\n`, "ascii"));
+        this.chunks.push(Buffer.from(`${clampLine(text, getLineWidth())}\n`, "ascii"));
         return this;
     }
     blank(lines = 1) {
@@ -28,9 +33,24 @@ export class RawEscPos {
             this.line("");
         return this;
     }
-    /** Avance de papel (sin corte). */
     feed(lines = 3) {
         this.chunks.push(Buffer.from([0x1b, 0x64, Math.min(255, lines)]));
+        return this;
+    }
+    /** Avance + corte (full | partial). */
+    finish() {
+        this.feed(4);
+        if (!shouldCut())
+            return this;
+        const mode = (process.env.PRINTER_CUT ?? "full").trim().toLowerCase();
+        if (mode === "partial") {
+            // Corte parcial — muchas Epson / LR
+            this.chunks.push(Buffer.from([0x1d, 0x56, 0x01]));
+        }
+        else {
+            // Corte total
+            this.chunks.push(Buffer.from([0x1d, 0x56, 0x00]));
+        }
         return this;
     }
     toBuffer() {

@@ -19,10 +19,12 @@ export function buildComandaRaw(ticket, copyLabel) {
     p.alignCenter()
         .line("GRANIZADOS DE PELICULA")
         .line("COMANDA")
-        .blank()
-        .line(txt(`Pedido #${ticket.numeroPedido}`))
-        .line(txt(ticket.hora))
         .blank();
+    for (const line of wrapText(txt(`Pedido #${ticket.numeroPedido} - ${ticket.hora}`))) {
+        p.line(line);
+    }
+    p.blank();
+    p.alignCenter();
     for (const line of wrapText(txt(ticket.destino))) {
         p.line(line);
     }
@@ -32,8 +34,18 @@ export function buildComandaRaw(ticket, copyLabel) {
     p.line(`Pago: ${txt(ticket.formaPago)}`).blank();
     p.alignLeft().line(separator());
     for (const item of ticket.items) {
+        const price = formatCOP(item.precioLinea);
         const qtyName = `${item.cantidad}x ${txt(item.nombre)}`;
-        p.line(lineLeftRight(qtyName, formatCOP(item.precioLinea)));
+        const width = getLineWidth();
+        if (qtyName.length + 1 + price.length > width) {
+            for (const line of wrapText(qtyName, width)) {
+                p.line(line);
+            }
+            p.line(price.padStart(width));
+        }
+        else {
+            p.line(lineLeftRight(qtyName, price));
+        }
         if (item.modificadores?.trim()) {
             for (const part of item.modificadores.split(" · ")) {
                 for (const line of wrapText(txt(part.trim()), getLineWidth() - 3)) {
@@ -56,7 +68,7 @@ export function buildComandaRaw(ticket, copyLabel) {
     if (ticket.devuelta != null && ticket.devuelta > 0) {
         p.line(lineLeftRight("Devuelta", formatCOP(ticket.devuelta)));
     }
-    p.blank().alignCenter().line("Gracias!").feed(4);
+    p.blank().alignCenter().line("Gracias!").finish();
     return p.toBuffer();
 }
 export async function isComandaPrinterReady() {

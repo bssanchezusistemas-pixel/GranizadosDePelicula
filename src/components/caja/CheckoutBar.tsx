@@ -16,6 +16,7 @@ import {
 import type { FormaPago } from "@/data/domicilios";
 import type { Ubicacion } from "@/data/caja";
 import { UbicacionSelector } from "@/components/caja/UbicacionSelector";
+import { MAX_PRINT_COPIES } from "@/lib/print/send";
 
 interface CheckoutBarProps {
   total: number;
@@ -31,6 +32,7 @@ interface CheckoutBarProps {
   cargandoDomiciliarios: boolean;
   carritoVacio: boolean;
   confirmando: boolean;
+  copiasComanda: number;
   onTipoEntrega: (t: TipoEntrega) => void;
   onFormaPago: (f: FormaPago) => void;
   onUbicacion: (id: string | null) => void;
@@ -38,6 +40,7 @@ interface CheckoutBarProps {
   onDireccion: (d: string) => void;
   onPagaCon: (n: number) => void;
   onDomiciliario: (id: string | null) => void;
+  onCopiasComanda: (n: number) => void;
   onConfirmar: () => void;
 }
 
@@ -58,6 +61,7 @@ export function CheckoutBar({
   cargandoDomiciliarios,
   carritoVacio,
   confirmando,
+  copiasComanda,
   onTipoEntrega,
   onFormaPago,
   onUbicacion,
@@ -65,6 +69,7 @@ export function CheckoutBar({
   onDireccion,
   onPagaCon,
   onDomiciliario,
+  onCopiasComanda,
   onConfirmar,
 }: CheckoutBarProps) {
   const esMesa = tipoEntrega === "mesa";
@@ -273,6 +278,35 @@ export function CheckoutBar({
           onPagaCon={onPagaCon}
         />
       )}
+
+      <div className="mb-4">
+        <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-white/50">
+          Copias de comanda
+        </label>
+        <div className="flex gap-2">
+          {Array.from({ length: MAX_PRINT_COPIES }, (_, i) => i + 1).map((n) => {
+            const activo = copiasComanda === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onCopiasComanda(n)}
+                aria-pressed={activo}
+                className={`flex-1 rounded-lg border py-2.5 text-sm font-bold transition ${
+                  activo
+                    ? "border-neon bg-neon/15 text-white"
+                    : "border-white/10 text-white/55 hover:border-white/30"
+                }`}
+              >
+                {n}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[10px] text-white/40">
+          Se imprimen {copiasComanda} comanda{copiasComanda > 1 ? "s" : ""} al confirmar.
+        </p>
+      </div>
 
       <div className="mb-4 flex items-center justify-between border-t border-white/8 pt-4">
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/50">

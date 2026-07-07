@@ -41,12 +41,14 @@ export function ProductGrid({ onAdd }: ProductGridProps) {
   const todosLosProductos = useMemo<FlatProduct[]>(
     () =>
       MENU_CATEGORIES.flatMap((cat) =>
-        cat.items.map((item) => ({
-          item,
-          categoriaId: cat.id,
-          accentColor: cat.accentColor ?? "#ff0033",
-          categoryLabel: cat.label,
-        })),
+        cat.items
+          .filter((item) => !item.publicOnly)
+          .map((item) => ({
+            item,
+            categoriaId: cat.id,
+            accentColor: cat.accentColor ?? "#ff0033",
+            categoryLabel: cat.label,
+          })),
       ),
     [],
   );
@@ -151,7 +153,10 @@ export function ProductGrid({ onAdd }: ProductGridProps) {
             (cat) => (
               <CategoryBlock
                 key={cat.id}
-                category={cat}
+                category={{
+                  ...cat,
+                  items: cat.items.filter((item) => !item.publicOnly),
+                }}
                 onRequestAdd={setPending}
               />
             ),

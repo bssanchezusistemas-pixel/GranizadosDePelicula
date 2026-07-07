@@ -2,7 +2,10 @@ import { getPrintBridgeUrl } from "@/lib/print/config";
 import type {
   OrderTicket,
   PrintBridgeHealth,
+  PrintJob,
   PrintResult,
+  PrintStation,
+  TicketKind,
 } from "@/lib/print/types";
 
 const PRINT_TIMEOUT_BASE_MS = 8000;
@@ -37,8 +40,7 @@ function mapFetchError(err: unknown): string {
   ) {
     return [
       "El navegador bloqueó la conexión con la impresora local.",
-      "Usa Chrome/Edge en el PC de caja, permite acceso a la red local si aparece el aviso,",
-      "o prueba abrir http://127.0.0.1:9101/print/test en este mismo PC.",
+      "Usa Chrome/Edge en el PC de caja y permite acceso a la red local.",
     ].join(" ");
   }
   return `Error de red al imprimir: ${msg}`;
@@ -59,24 +61,38 @@ export async function checkPrintBridgeHealth(): Promise<PrintBridgeHealth | null
   }
 }
 
-export async function sendPrintTicket(
+export async function sendPrintJob(
   ticket: OrderTicket,
-  copies = 1,
+  options: {
+    station?: PrintStation;
+    kind?: TicketKind;
+    copies?: number;
+  } = {},
 ): Promise<PrintResult> {
+  const station = options.station ?? ticket.station ?? "caja";
+  const kind = options.kind ?? ticket.kind ?? "comanda";
   const total = Math.min(
     MAX_PRINT_COPIES,
-    Math.max(1, Math.floor(copies) || 1),
+    Math.max(1, Math.floor(options.copies ?? 1) || 1),
   );
   const timeoutMs =
     PRINT_TIMEOUT_BASE_MS + (total - 1) * PRINT_TIMEOUT_PER_COPY_MS;
   const base = getPrintBridgeUrl();
+
+  const bodyTicket = { ...ticket, station, kind };
+
   try {
     const res = await fetchWithTimeout(
       `${base}/print`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticket, copies: total }),
+        body: JSON.stringify({
+          ticket: bodyTicket,
+          station,
+          kind,
+          copies: total,
+        }),
       },
       timeoutMs,
     );
@@ -89,17 +105,44 @@ export async function sendPrintTicket(
     if (!res.ok || !data.ok) {
       return {
         ok: false,
+        station,
         error:
           data.error ??
-          `No se pudo imprimir (HTTP ${res.status}). Revisa la ventana del servicio en el PC de caja.`,
+          `No se pudo imprimir (HTTP ${res.status}). Revisa el servicio en caja.`,
       };
     }
 
-    return { ok: true };
+    return { ok: true, station };
   } catch (err) {
     return {
       ok: false,
+      station,
       error: mapFetchError(err),
     };
   }
+}
+
+export async function sendPrintJobs(jobs: PrintJob[]): Promise<PrintResult[]> {
+  const results: PrintResult[] = [];
+  for (const job of jobs) {
+    const result = await sendPrintJob(job.ticket, {
+      station: job.station,
+      kind: job.kind,
+      copies: job.copies ?? 1,
+    });
+    results.push(result);
+  }
+  return results;
+}
+
+/** @deprecated Usar sendPrintJob con station/kind */
+export async function sendPrintTicket(
+  ticket: OrderTicket,
+  copies = 1,
+): Promise<PrintResult> {
+  return sendPrintJob(ticket, {
+    station: ticket.station ?? "caja",
+    kind: ticket.kind ?? "comanda",
+    copies,
+  });
 }

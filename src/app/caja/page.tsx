@@ -23,7 +23,12 @@ import {
   type Ubicacion,
 } from "@/data/caja";
 import { buildOrderTicket } from "@/lib/print/build-ticket";
+import {
+  formatPrintErrors,
+  printOnConfirm,
+} from "@/lib/print/print-jobs";
 import { sendPrintTicket } from "@/lib/print/send";
+import type { OrderTicket } from "@/lib/print/types";
 
 export default function CajaPage() {
   const router = useRouter();
@@ -45,6 +50,9 @@ export default function CajaPage() {
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printAviso, setPrintAviso] = useState<string | null>(null);
+  const [copiasComanda, setCopiasComanda] = useState(1);
+  const [ultimoTicket, setUltimoTicket] = useState<OrderTicket | null>(null);
+  const [reimprimiendo, setReimprimiendo] = useState(false);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -127,6 +135,26 @@ export default function CajaPage() {
     setItems((prev) => prev.filter((i) => itemCarritoKey(i) !== key));
   }
 
+  function imprimirAlConfirmar(ctx: {
+    items: ItemPedidoCarrito[];
+    pedido: PedidoCaja;
+  }) {
+    void printOnConfirm({
+      items: ctx.items,
+      pedido: ctx.pedido,
+      tipoEntrega,
+      formaPago,
+      ubicaciones,
+      ubicacionId,
+      nombreRecoge,
+      direccion,
+      pagaCon,
+    }).then((results) => {
+      const err = formatPrintErrors(results);
+      if (err) setPrintAviso(err);
+    });
+  }
+
   async function confirmar() {
     if (items.length === 0 || confirmando) return;
     setConfirmando(true);
@@ -169,11 +197,8 @@ export default function CajaPage() {
         direccion,
         pagaCon,
       });
-      void sendPrintTicket(ticket).then((result) => {
-        if (!result.ok) {
-          setPrintAviso(result.error ?? "No se pudo imprimir la comanda.");
-        }
-      });
+      setUltimoTicket(ticket);
+      imprimirAlConfirmar({ items: itemsParaImprimir, pedido });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo confirmar el pedido.");
     } finally {
@@ -262,6 +287,27 @@ export default function CajaPage() {
             >
               Cerrar
             </button>
+            {ultimoTicket && (
+              <button
+                type="button"
+                disabled={reimprimiendo}
+                onClick={() => {
+                  setReimprimiendo(true);
+                  setPrintAviso(null);
+                  void sendPrintTicket(ultimoTicket, copiasComanda).then((result) => {
+                    if (!result.ok) {
+                      setPrintAviso(result.error ?? "No se pudo reimprimir.");
+                    }
+                    setReimprimiendo(false);
+                  });
+                }}
+                className="rounded-lg border border-emerald-700/50 px-3 py-1 text-[10px] font-bold uppercase text-emerald-300 disabled:opacity-50"
+              >
+                {reimprimiendo
+                  ? "Imprimiendo..."
+                  : `Reimprimir ${copiasComanda} copia${copiasComanda > 1 ? "s" : ""}`}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -293,6 +339,7 @@ export default function CajaPage() {
               pagaCon={pagaCon}
               carritoVacio={items.length === 0}
               confirmando={confirmando}
+              copiasComanda={copiasComanda}
               onTipoEntrega={(t) => {
                 setTipoEntrega(t);
                 if (t !== "mesa") setUbicacionId(null);
@@ -314,6 +361,7 @@ export default function CajaPage() {
               domiciliarioId={domiciliarioId}
               cargandoDomiciliarios={cargandoDomiciliarios}
               onDomiciliario={setDomiciliarioId}
+              onCopiasComanda={setCopiasComanda}
               onConfirmar={confirmar}
             />
           </div>
