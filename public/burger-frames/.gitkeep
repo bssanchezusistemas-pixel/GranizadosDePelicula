@@ -1,7 +1,0 @@
-# Placeholder for burger assembly frames
-#
-# Drop your horizontal PNG/WebP frames here named:
-#   frame-001.png, frame-002.png, ... frame-024.png
-#
-# Recommended: 24 frames, 16:9 or square, transparent background.
-# Once added, tell the dev to switch HeroScroll to frame sequence mode.
