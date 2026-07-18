@@ -12,6 +12,7 @@ export type MenuCategoryId =
   | "tacos-birria"
   | "bebidas"
   | "limonadas"
+  | "sodas"
   | "adiciones"
   | "salchipapas"
   | "hamburguesas";
@@ -69,7 +70,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         name: "Megacholado",
         description: "Cholao grande con fruta, leche condensada y toppings.",
         price: 17000,
-        image: "/menu/mega-cholao.webp",
+        image: "/menu/chol-mega.webp",
         badge: "Estrella",
       },
       {
@@ -77,7 +78,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         name: "Cholado grande con helado",
         description: "Cholao grande con helado, fruta fresca y toppings.",
         price: 11000,
-        image: "/menu/cholado-grande-con-helado.webp",
+        image: "/menu/chol-grande.webp",
       },
       {
         id: "chol-pequeno",
@@ -88,12 +89,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "chol-tradicional",
+        image: "/menu/chol-tradicional.webp",
         name: "Cholao Tradicional",
         description: "Cholao clásico de la casa.",
         price: 8000,
       },
       {
         id: "rasp-con-helado",
+        image: "/menu/rasp-con-helado.webp",
         name: "Raspao con Helado",
         description: "Raspado con helado.",
         sizes: [
@@ -113,12 +116,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "boom-oreo-milo",
+        image: "/menu/boom-oreo-milo.webp",
         name: "Boom de Oreo o Milo",
         description: "Granizado boom con Oreo o Milo.",
         price: 17000,
       },
       {
         id: "boom-caramelo",
+        image: "/menu/boom-caramelo.webp",
         name: "Boom de Caramelo",
         description: "Granizado boom sabor caramelo.",
         price: 17000,
@@ -127,19 +132,21 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         id: "boom-chocolate",
         name: "Boom de Chocolate",
         description: "Granizado boom sabor chocolate.",
+        image: "/menu/boom-chocolate.webp",
         price: 17000,
       },
       {
         id: "gran-oreo",
         name: "Granizado de Oreo",
         description: "Granizado sabor Oreo.",
-        image: "/menu/granizado-oreo.webp",
+        image: "/menu/gran-oreo.webp",
         price: 11000,
       },
       {
         id: "gran-milo",
         name: "Granizado de Milo",
         description: "Granizado sabor Milo.",
+        image: "/menu/gran-milo.webp",
         price: 11000,
       },
       {
@@ -159,7 +166,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         id: "hel-fresas-mm",
         name: "Fresas con M&M",
         description: "Fresas con crema, chantilly y M&M.",
-        image: "/menu/fresas-mm.webp",
+        image: "/menu/hel-fresas-mm.webp",
         sizes: [
           { label: "13 oz", price: 14000 },
           { label: "16 oz", price: 17000 },
@@ -226,12 +233,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "gran-mocca-caramelo",
+        image: "/menu/gran-mocca-caramelo.webp",
         name: "Mocca Caramelo",
         description: "Granizado mocca caramelo.",
         price: 11000,
       },
       {
         id: "gran-frutos-rojos",
+        image: "/menu/gran-frutos-rojos.webp",
         name: "Granizado Frutos Rojos",
         description: "Granizado sabor frutos rojos.",
         price: 11000,
@@ -240,24 +249,28 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         id: "gran-sandia",
         name: "Granizado Sandía",
         description: "Granizado sabor sandía.",
+        image: "/menu/gran-sandia.webp",
         price: 11000,
       },
       {
         id: "gran-masmelo",
         name: "Granizado Masmelo",
         description: "Granizado sabor masmelo.",
+        image: "/menu/gran-masmelo.webp",
         price: 11000,
       },
       {
         id: "gran-maracuya",
         name: "Granizado Maracuyá",
         description: "Granizado sabor maracuyá.",
+        image: "/menu/gran-maracuya.webp",
         price: 11000,
       },
       {
         id: "gran-mango-biche",
         name: "Granizado Mango Biche",
         description: "Granizado sabor mango biche.",
+        image: "/menu/gran-mango-biche.webp",
         price: 11000,
       },
       {
@@ -265,10 +278,11 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         name: "Granizado Maracubiche",
         description: "Granizado maracuyá y mango biche.",
         price: 11000,
-        image: "/menu/granizado-maracubiche.webp",
+        image: "/menu/gran-maracubiche.webp",
       },
       {
         id: "gran-frutos-amarillos",
+        image: "/menu/gran-frutos-amarillos.webp",
         name: "Granizado Frutos Amarillos",
         description: "Granizado sabor frutos amarillos.",
         price: 11000,
@@ -338,6 +352,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "pat-pelicula",
+        image: "/menu/pat-pelicula.webp",
         name: "De Película",
         description:
           "Plátano pintón, lechuga fresca, pollo desmechado, carne desmechada, jamón, tocineta ahumada, queso gratinado, salsa criolla, trozos de cerdo en salsa BBQ, chorizo santarosano, huevo de codorniz, salsa de la casa.",
@@ -367,16 +382,17 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   {
     id: "desgranados",
     label: "Desgranados",
-    tagline: "Arroz con sabor casero",
+    tagline: "Maíz con sabor casero",
     items: [
       {
         id: "des-solo-pollo",
         name: "Solo Pollo",
-        description: "Arroz desgranado con pollo desmechado.",
+        description: "Maíz desgranado con pollo desmechado.",
         price: 22000,
       },
       {
         id: "des-mixto",
+        image: "/menu/des-mixto.webp",
         name: "Mixto",
         description: "Pollo, cerdo y carne desmechada.",
         price: 33000,
@@ -396,12 +412,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "asa-churrasco",
+        image: "/menu/asa-churrasco.webp",
         name: "Churrasco",
         description: "Jugoso y marcado al carbón.",
         price: 29000,
       },
       {
         id: "asa-costilla",
+        image: "/menu/asa-costilla.webp",
         name: "Costilla Ahumada",
         description: "Costilla ahumada a la brasa.",
         price: 24000,
@@ -488,7 +506,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         price: 10000,
         image: "/menu/limonada-cerezada.webp",
       },
-      { id: "lim-coco", name: "Limonada Coco", description: "Limonada sabor coco.", price: 10000 },
+      { id: "lim-coco", name: "Limonada Coco", description: "Limonada sabor coco.", image: "/menu/lim-coco.webp", price: 10000 },
       { id: "lim-hierba", name: "Limonada Hierba Buena", description: "Limonada con hierba buena.", price: 10000 },
       { id: "lim-coco-cereza", name: "Limonada Coco Cereza", description: "Limonada coco y cereza.", price: 10000 },
       { id: "lim-coco-maracuya", name: "Limonada Coco Maracuyá", description: "Limonada coco y maracuyá.", price: 10000 },
@@ -554,6 +572,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     items: [
       {
         id: "sal-tradicional",
+        image: "/menu/sal-tradicional.webp",
         name: "Tradicional",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, huevos de codorniz.",
@@ -564,6 +583,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-gratinada",
+        image: "/menu/sal-gratinada.webp",
         name: "Salchigratinada",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado y huevos de codorniz.",
@@ -574,6 +594,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-pollo",
+        image: "/menu/sal-pollo.webp",
         name: "Salchipollo",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, pollo desmechado, maíz tierno, trozos de tocineta y huevos de codorniz.",
@@ -586,6 +607,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-costilla",
+        image: "/menu/sal-costilla.webp",
         name: "Salchicostilla",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, costilla en salsa BBQ, maduro y huevos de codorniz.",
@@ -598,6 +620,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-cerdo",
+        image: "/menu/sal-cerdo.webp",
         name: "Salchicerdo",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, chorizo antioqueño, cerdo en trozos en salsa BBQ, maduro, chicharrón carnudo y huevos de codorniz.",
@@ -622,6 +645,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-mixta",
+        image: "/menu/sal-mixta.webp",
         name: "Salchimixta",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, carne de res desmechada, maduro, maíz tierno, pollo desmechado y huevos de codorniz.",
@@ -634,6 +658,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-montanera",
+        image: "/menu/sal-montanera.webp",
         name: "Montañera",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, chorizo ahumado, costilla en salsa BBQ, chicharrón carnudo, monedas plátano verde, pico de gallo y huevos de codorniz.",
@@ -646,6 +671,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-chori-costilla",
+        image: "/menu/sal-chori-costilla.webp",
         name: "Chori | Costilla",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, chorizo ahumado, maíz tierno, costilla en salsa BBQ, maduro, chorizo antioqueño.",
@@ -658,6 +684,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-pelicula",
+        image: "/menu/sal-pelicula.webp",
         name: "Salchi | Película",
         description:
           "Papa a la francesa o criolla, salchicha, salsas de la casa, queso gratinado, carne de res desmechada, pollo desmechado, maduro, cerdo a la plancha, chorizo antioqueño, costilla en salsa BBQ, maíz tierno y huevos de codorniz.",
@@ -671,6 +698,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "sal-lazana",
+        image: "/menu/sal-lazana.webp",
         name: "Salchilazaña",
         description:
           "Papa a la francesa o criolla, salchicha ahumada, salsas de la casa, queso doble crema, carne desmechada, crema bechamel, pollo desmechado, queso parmesano, mermelada, tocineta, peperoni y orégano.",
@@ -702,6 +730,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "ham-chingona",
+        image: "/menu/ham-chingona.webp",
         name: "La Chingona",
         description:
           "Pan brioche, vegetales frescos, carne angus, queso cheddar, cebolla caramelizada, tocineta ahumada, salsa chipotle, aguacate, nachos, queso, salsas de la casa, queso cheddar gratinado.",
@@ -716,6 +745,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "ham-criminal",
+        image: "/menu/ham-criminal.webp",
         name: "La Criminal",
         description:
           "Pan brioche, vegetales frescos, carne angus, queso cheddar, cebolla caramelizada, tocineta ahumada, chorizo santarosano, salsas de la casa.",
@@ -737,6 +767,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "ham-kentuck",
+        image: "/menu/ham-kentuck.webp",
         name: "La Kentuck",
         description:
           "Pan brioche, vegetales frescos, carne angus, queso cheddar, tocineta ahumada, pollo crispy kentucky, salsa de la casa.",
@@ -744,6 +775,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "ham-gratinada",
+        image: "/menu/ham-gratinada.webp",
         name: "Hamburguesa Gratinada",
         description:
           "Pan brioche, carne angus, queso cheddar, cebolla caramelizada, tocineta, vegetales frescos y queso fundido.",
@@ -751,6 +783,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       },
       {
         id: "ham-beicon",
+        image: "/menu/ham-beicon.webp",
         name: "La Beicon",
         description:
           "Pan brioche, carne angus, queso cheddar, cebolla caramelizada, tocineta, panceta de cerdo, mermelada de tocineta, vegetales frescos, acompañada de papas francesas.",
@@ -763,6 +796,27 @@ export const MENU_CATEGORIES: MenuCategory[] = [
           "Pan brioche, carne angus, cebolla caramelizada, tocineta, birria de res, queso asado, loncha de plátano maduro, salsas de La Casa.",
         price: 29000,
       },
+    ],
+  },
+  {
+    id: "sodas",
+    label: "Sodas Saborizadas",
+    tagline: "Burbujeantes y frutales",
+    items: [
+      { id: "soda-cereza",
+        image: "/menu/soda-cereza.webp", name: "Soda de Cereza", description: "Soda saborizada con cereza.", price: 13000 },
+      { id: "soda-maracuya",
+        image: "/menu/soda-maracuya.webp", name: "Soda de Maracuyá", description: "Soda saborizada con maracuyá.", price: 13000 },
+      { id: "soda-fresa",
+        image: "/menu/soda-fresa.webp", name: "Soda de Fresa", description: "Soda saborizada con fresa.", price: 13000 },
+      { id: "soda-manzana",
+        image: "/menu/soda-manzana.webp", name: "Soda de Manzana Verde", description: "Soda saborizada con manzana verde.", price: 13000 },
+      { id: "soda-sandia",
+        image: "/menu/soda-sandia.webp", name: "Soda de Sandía", description: "Soda saborizada con sandía.", price: 13000 },
+      { id: "soda-mango",
+        image: "/menu/soda-mango.webp", name: "Soda de Mango Biche", description: "Soda saborizada con mango biche.", price: 13000 },
+      { id: "soda-mora",
+        image: "/menu/soda-mora.webp", name: "Soda de Mora Azul", description: "Soda saborizada con mora azul.", price: 13000 },
     ],
   },
 ];
