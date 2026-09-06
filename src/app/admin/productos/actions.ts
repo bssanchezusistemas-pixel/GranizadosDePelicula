@@ -126,3 +126,23 @@ export async function removeProductImageAction(productId: string) {
   revalidatePath("/admin/productos");
   revalidatePath(`/admin/productos/${productId}`);
 }
+
+export async function deleteProductAction(productId: string) {
+  await requireSupabaseAdmin();
+  const supabase = createServiceClient();
+
+  // Eliminar tamaños asociados si existen
+  await supabase.from("menu_item_sizes").delete().eq("item_id", productId);
+
+  const { error } = await supabase
+    .from("menu_items")
+    .delete()
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/");
+  revalidatePath("/admin/productos");
+  revalidatePath(`/admin/productos/${productId}`);
+}
+

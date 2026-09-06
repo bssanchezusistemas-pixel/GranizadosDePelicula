@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { formatCOP, type MenuItem } from "@/data/menu";
 import {
+  deleteProductAction,
   removeProductImageAction,
   updateProductAction,
   updateProductImageAction,
@@ -32,11 +33,32 @@ export function ProductEditForm({ product, categoryLabel }: ProductEditProps) {
   const [active, setActive] = useState(product.active);
   const [imageUrl, setImageUrl] = useState(product.image ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   const hasSizes = sizes.length > 0;
+
+  async function handleDelete() {
+    const confirmed = window.confirm(
+      `¿Estás seguro de que deseas eliminar permanentemente "${product.name}"? Esta acción no se puede deshacer.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteProductAction(product.id);
+      router.push("/admin/productos");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Error al eliminar el producto.",
+      );
+      setDeleting(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -113,17 +135,27 @@ export function ProductEditForm({ product, categoryLabel }: ProductEditProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/admin/productos"
-          className="text-xs uppercase tracking-wide text-white/45 hover:text-white"
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link
+            href="/admin/productos"
+            className="text-xs uppercase tracking-wide text-white/45 hover:text-white"
+          >
+            ← Volver a productos
+          </Link>
+          <h1 className="mt-2 font-[family-name:var(--font-display)] text-2xl uppercase text-white">
+            {product.name}
+          </h1>
+          <p className="text-sm text-white/45">{categoryLabel}</p>
+        </div>
+        <button
+          type="button"
+          disabled={deleting || saving}
+          onClick={handleDelete}
+          className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition"
         >
-          ← Volver a productos
-        </Link>
-        <h1 className="mt-2 font-[family-name:var(--font-display)] text-2xl uppercase text-white">
-          {product.name}
-        </h1>
-        <p className="text-sm text-white/45">{categoryLabel}</p>
+          {deleting ? "Eliminando..." : "Eliminar"}
+        </button>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -262,13 +294,24 @@ export function ProductEditForm({ product, categoryLabel }: ProductEditProps) {
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
         {ok ? <p className="text-sm text-green-400">{ok}</p> : null}
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full rounded-full border border-neon bg-neon/15 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white disabled:opacity-50"
-        >
-          {saving ? "Guardando..." : "Guardar cambios"}
-        </button>
+        <div className="flex flex-col gap-3 pt-4 border-t border-white/10">
+          <button
+            type="submit"
+            disabled={saving || deleting}
+            className="w-full rounded-full border border-neon bg-neon/15 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-neon/25 disabled:opacity-50 transition"
+          >
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+
+          <button
+            type="button"
+            disabled={saving || deleting}
+            onClick={handleDelete}
+            className="w-full rounded-full border border-red-500/40 bg-red-500/10 py-3 text-xs font-bold uppercase tracking-[0.2em] text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition"
+          >
+            {deleting ? "Eliminando..." : "Eliminar producto"}
+          </button>
+        </div>
       </form>
     </div>
   );
