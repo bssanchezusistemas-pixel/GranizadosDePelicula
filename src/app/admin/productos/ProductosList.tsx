@@ -48,14 +48,22 @@ export function ProductosList({ categories }: { categories: MenuCategory[] }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-[family-name:var(--font-display)] text-2xl uppercase text-white">
-          Productos
-        </h1>
-        <p className="mt-1 text-sm text-white/50">
-          Edita nombre, descripción, precio y foto. Los cambios se ven en el
-          sitio web al guardar.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-[family-name:var(--font-display)] text-2xl uppercase text-white">
+            Productos
+          </h1>
+          <p className="mt-1 text-sm text-white/50">
+            Edita nombre, descripción, precio y foto. Los cambios se ven en el
+            sitio web al guardar.
+          </p>
+        </div>
+        <Link
+          href="/admin/productos/nuevo"
+          className="inline-flex items-center justify-center self-start sm:self-auto rounded-full border border-neon bg-neon/15 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-neon/25 transition shadow-sm"
+        >
+          + Agregar Producto
+        </Link>
       </div>
 
       <input
@@ -123,9 +131,11 @@ export function ProductosList({ categories }: { categories: MenuCategory[] }) {
                         )}
                       </button>
                     </div>
-                    <p className="mt-0.5 text-sm text-neon">
-                      {item.sizes?.length
-                        ? `${item.sizes.length} tamaños`
+                    <p className="mt-0.5 text-sm text-neon font-medium">
+                      {item.sizes && item.sizes.length > 0
+                        ? item.sizes.length === 1
+                          ? `${item.sizes[0].label}: ${formatCOP(item.sizes[0].price)}`
+                          : `Desde ${formatCOP(Math.min(...item.sizes.map((s) => s.price)))} (${item.sizes.length} tamaños)`
                         : formatCOP(getLinePrice(item))}
                     </p>
                     <p className="mt-1 line-clamp-2 text-xs text-white/45">

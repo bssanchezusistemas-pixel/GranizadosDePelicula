@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getMenuCategoriesForAdmin, getMenuItemById } from "@/lib/menu/get-menu";
 import { ProductEditForm } from "@/app/admin/productos/ProductEditForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminProductoEditPage({
   params,
 }: {
@@ -15,5 +17,11 @@ export default async function AdminProductoEditPage({
   const categoryLabel =
     categories.find((c) => c.id === product.categoryId)?.label ?? product.categoryId;
 
-  return <ProductEditForm product={product} categoryLabel={categoryLabel} />;
+  return (
+    <ProductEditForm
+      product={product}
+      categories={categories}
+      categoryLabel={categoryLabel}
+    />
+  );
 }
