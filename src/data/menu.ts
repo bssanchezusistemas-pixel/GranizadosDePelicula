@@ -796,6 +796,15 @@ export const MENU_CATEGORIES: MenuCategory[] = [
           "Pan brioche, carne angus, cebolla caramelizada, tocineta, birria de res, queso asado, loncha de plátano maduro, salsas de La Casa.",
         price: 29000,
       },
+      {
+        id: "ham-cheese-burger",
+        image: "/menu/ham-cheese-burger.webp",
+        name: "Cheese Burger",
+        description:
+          "Pan pretzel, vegetales frescos, carne artesanal, doble queso chedar, doble tocineta ahumada, cebolla caramelizada, salsa chedar, queso filadelphia, mermelada de tocineta, honey mustard.",
+        price: 26000,
+        badge: "Nueva",
+      },
     ],
   },
   {
