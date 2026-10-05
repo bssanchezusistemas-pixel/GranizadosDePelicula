@@ -1,9 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
 import { MENU_CATEGORIES } from "../src/data/menu";
-import * as dotenv from "dotenv";
-import path from "path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+try {
+  const envText = readFileSync(resolve(process.cwd(), ".env.local"), "utf8");
+  for (const line of envText.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const name = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    process.env[name] = val;
+  }
+} catch {
+  // Ignora si no existe .env.local
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
