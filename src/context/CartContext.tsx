@@ -38,10 +38,14 @@ const FORMA_PAGO_LABEL: Record<FormaPago, string> = {
   transferencia: "Transferencia",
 };
 
+export const COSTO_DOMICILIO = 2_000;
+
 interface CartContextValue {
   lines: CartLine[];
   isOpen: boolean;
   totalItems: number;
+  subtotalPrice: number;
+  costoDomicilio: number;
   totalPrice: number;
   tipoEntrega: TipoEntregaCliente;
   direccion: string;
@@ -145,7 +149,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [lines],
   );
 
-  const totalPrice = useMemo(
+  const subtotalPrice = useMemo(
     () =>
       lines.reduce(
         (sum, line) =>
@@ -153,6 +157,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         0,
       ),
     [lines],
+  );
+
+  const costoDomicilio =
+    tipoEntrega === "domicilio" && lines.length > 0 ? COSTO_DOMICILIO : 0;
+
+  const totalPrice = useMemo(
+    () => subtotalPrice + costoDomicilio,
+    [subtotalPrice, costoDomicilio],
   );
 
   const isCheckoutValid = useCallback(() => {
@@ -176,10 +188,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .join("\n");
 
+    const adicionalDomicilioLine =
+      tipoEntrega === "domicilio"
+        ? `1x Adicional Domicilio — ${formatCOP(COSTO_DOMICILIO)}`
+        : null;
+
+    const itemsConAdicional = adicionalDomicilioLine
+      ? `${itemsText}\n${adicionalDomicilioLine}`
+      : itemsText;
+
     const entregaLines =
       tipoEntrega === "domicilio"
         ? [
-            "*Entrega:* Domicilio",
+            `*Entrega:* Domicilio (+${formatCOP(COSTO_DOMICILIO)})`,
             `*Dirección:* ${direccion.trim()}`,
           ]
         : [
@@ -191,7 +212,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       "¡Hola! Quiero pedir en *Granizados de Película* 🎬",
       "",
       "*Mi pedido:*",
-      itemsText,
+      itemsConAdicional,
       "",
       `*Total:* ${formatCOP(totalPrice)}`,
       "",
@@ -214,6 +235,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines,
       isOpen,
       totalItems,
+      subtotalPrice,
+      costoDomicilio,
       totalPrice,
       tipoEntrega,
       direccion,
@@ -239,6 +262,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines,
       isOpen,
       totalItems,
+      subtotalPrice,
+      costoDomicilio,
       totalPrice,
       tipoEntrega,
       direccion,

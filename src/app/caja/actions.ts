@@ -537,11 +537,10 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
       }
 
       const baseEfectivo = Number(turno.base_efectivo ?? 0);
-      const subtotal = incrementoItems;
       if (
         input.formaPago === "efectivo" &&
         trabajaSinBase(baseEfectivo) &&
-        (!pagaCon || pagaCon < subtotal)
+        (!pagaCon || pagaCon < total)
       ) {
         await supabase.from("pedidos_caja").delete().eq("id", pedidoId);
         throw new Error(
@@ -566,14 +565,15 @@ export async function confirmarPedidoAction(input: NuevoPedidoInput) {
           );
         }
       } else {
+        const resumenConDomicilio = `${resumirItems(items)} · Adicional domicilio ($${COMISION_DOMICILIO.toLocaleString("es-CO")})`;
         const filaDomicilio: Record<string, unknown> = {
           numero_pedido: numeroStr,
           domiciliario_id: input.domiciliarioId,
           turno_id: turno.id,
           canal: "local",
-          items: resumirItems(items),
+          items: resumenConDomicilio,
           direccion: input.direccion?.trim() ?? null,
-          valor_pedido: subtotal,
+          valor_pedido: total,
           forma_pago: input.formaPago,
           paga_con: input.formaPago === "efectivo" ? pagaCon : null,
           devuelta,

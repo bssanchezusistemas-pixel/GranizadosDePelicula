@@ -266,8 +266,8 @@ export function CheckoutBar({
       )}
 
       {esDomicilio && (
-        <p className="mb-4 rounded-lg border border-white/8 bg-cinema-black/50 px-4 py-3 text-xs text-white/60">
-          Incluye {formatCOP(COMISION_DOMICILIO)} de domicilio (paga el cliente).
+        <p className="mb-4 rounded-lg border border-neon/30 bg-neon/10 px-4 py-3 text-xs text-white/80">
+          Incluye <strong className="text-neon">{formatCOP(COMISION_DOMICILIO)}</strong> de adicional por domicilio (paga el cliente).
         </p>
       )}
 

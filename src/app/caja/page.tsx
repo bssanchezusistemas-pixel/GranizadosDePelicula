@@ -322,6 +322,8 @@ export default function CajaPage() {
               <CartPanel
                 items={items}
                 total={totalMostrar}
+                esDomicilio={tipoEntrega === "domicilio"}
+                comisionDomicilio={COMISION_DOMICILIO}
                 onIncrementar={incrementar}
                 onDecrementar={decrementar}
                 onQuitar={quitar}

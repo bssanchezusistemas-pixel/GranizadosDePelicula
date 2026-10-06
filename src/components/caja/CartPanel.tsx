@@ -10,6 +10,8 @@ interface CartPanelProps {
   onQuitar: (key: string) => void;
   onVaciar: () => void;
   total: number;
+  esDomicilio?: boolean;
+  comisionDomicilio?: number;
 }
 
 export function itemCarritoKey(item: ItemPedidoCarrito): string {
@@ -23,6 +25,8 @@ export function CartPanel({
   onQuitar,
   onVaciar,
   total,
+  esDomicilio = false,
+  comisionDomicilio = 0,
 }: CartPanelProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/8 bg-cinema-gray">
@@ -111,11 +115,47 @@ export function CartPanel({
                 </li>
               );
             })}
+            {esDomicilio && comisionDomicilio > 0 && (
+              <li className="rounded-xl border border-neon/30 bg-neon/10 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-bold uppercase leading-tight text-white">
+                        Adicional Domicilio
+                      </p>
+                      <span className="rounded bg-neon/20 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-neon">
+                        Adicional
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-white/50">
+                      Servicio de entrega
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-black text-neon">
+                    {formatCOP(comisionDomicilio)}
+                  </p>
+                </div>
+              </li>
+            )}
           </ul>
         )}
       </div>
 
       <div className="border-t border-white/8 bg-cinema-black/40 px-5 py-4">
+        {esDomicilio && comisionDomicilio > 0 && items.length > 0 && (
+          <div className="mb-2 space-y-1 text-xs text-white/60">
+            <div className="flex items-center justify-between">
+              <span>Subtotal productos:</span>
+              <span className="text-white/80">
+                {formatCOP(Math.max(0, total - comisionDomicilio))}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-neon">
+              <span>Adicional domicilio:</span>
+              <span className="font-bold">+{formatCOP(comisionDomicilio)}</span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/50">
             Total

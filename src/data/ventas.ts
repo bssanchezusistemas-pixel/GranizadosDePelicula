@@ -54,7 +54,7 @@ export const REPARTIDORES: Repartidor[] = [
 ];
 
 /** Comisión fija por entrega de domiciliario. */
-export const COMISION_REPARTIDOR = 3_000;
+export const COMISION_REPARTIDOR = 2_000;
 
 export const TIPO_COMISION_LABEL: Record<TipoComision, string> = {
   cliente: "El cliente paga",

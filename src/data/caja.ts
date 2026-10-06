@@ -11,7 +11,7 @@ export type TipoUbicacion = "mesa" | "pasillo";
 export type TipoComision = "cliente" | "restaurante";
 
 export const PEDIDO_INICIAL = 5750;
-export const COMISION_DOMICILIO = 3_000;
+export const COMISION_DOMICILIO = 2_000;
 
 export const TIPO_ENTREGA_LABEL: Record<TipoEntrega, string> = {
   mesa: "En mesa",

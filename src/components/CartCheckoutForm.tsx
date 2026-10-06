@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useCart, type TipoEntregaCliente } from "@/context/CartContext";
 import type { FormaPago } from "@/data/domicilios";
 
-const TIPOS: { id: TipoEntregaCliente; label: string }[] = [
+const TIPOS: { id: TipoEntregaCliente; label: string; badge?: string }[] = [
   { id: "recoger", label: "Recoger en local" },
-  { id: "domicilio", label: "Domicilio" },
+  { id: "domicilio", label: "Domicilio", badge: "+$2.000" },
 ];
 
 const PAGOS: FormaPago[] = ["efectivo", "transferencia"];
@@ -54,13 +54,22 @@ export function CartCheckoutForm() {
                 setTipoEntrega(tipo.id);
                 setTouched({ direccion: false, nombreRecoge: false });
               }}
-              className={`rounded-lg border px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide transition ${
+              className={`flex flex-col items-center justify-center rounded-lg border px-3 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
                 activo
                   ? "border-neon bg-neon/15 text-white"
                   : "border-white/10 text-white/55 hover:border-white/25"
               }`}
             >
-              {tipo.label}
+              <span>{tipo.label}</span>
+              {tipo.badge && (
+                <span
+                  className={`text-[9px] font-normal normal-case tracking-normal ${
+                    activo ? "text-neon" : "text-white/40"
+                  }`}
+                >
+                  {tipo.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -84,6 +93,9 @@ export function CartCheckoutForm() {
               Escribe la dirección completa (mín. 5 caracteres).
             </p>
           )}
+          <p className="mt-1.5 text-[11px] text-neon/90 font-medium">
+            Adicional por domicilio: $2.000 (se suma al total)
+          </p>
         </div>
       ) : (
         <div>

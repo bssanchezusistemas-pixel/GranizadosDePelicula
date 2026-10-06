@@ -14,7 +14,10 @@ export function CartDrawer() {
     lines,
     isOpen,
     totalItems,
+    subtotalPrice,
+    costoDomicilio,
     totalPrice,
+    tipoEntrega,
     closeCart,
     addItem,
     removeItem,
@@ -118,6 +121,18 @@ export function CartDrawer() {
         </div>
 
         <div className="border-t border-white/10 px-5 py-5">
+          {tipoEntrega === "domicilio" && lines.length > 0 && (
+            <div className="mb-3 space-y-1.5 rounded-xl border border-white/8 bg-cinema-black/40 p-3 text-xs text-white/60">
+              <div className="flex items-center justify-between">
+                <span>Subtotal productos:</span>
+                <span className="text-white/80">{formatCOP(subtotalPrice)}</span>
+              </div>
+              <div className="flex items-center justify-between text-neon">
+                <span>Adicional domicilio:</span>
+                <span className="font-bold">+{formatCOP(costoDomicilio)}</span>
+              </div>
+            </div>
+          )}
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm uppercase tracking-wider text-white/50">
               Total
