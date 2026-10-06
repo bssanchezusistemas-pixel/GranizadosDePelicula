@@ -83,7 +83,8 @@ export function CheckoutBar({
   const sinJornadaDomicilio =
     esDomicilio && !cargandoDomiciliarios && domiciliarios.length === 0;
 
-  const totalACobrar = esDomicilio ? total + COMISION_DOMICILIO : total;
+  const totalACobrar =
+    esDomicilio && !carritoVacio ? total + COMISION_DOMICILIO : total;
 
   const requierePagoEfectivo =
     formaPago === "efectivo" && (esDomicilio || esRecoger);

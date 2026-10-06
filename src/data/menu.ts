@@ -1,5 +1,6 @@
 export type MenuCategoryId =
   | "helados"
+  | "fresas"
   | "cholaos"
   | "raspados"
   | "boom"
@@ -163,57 +164,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         price: 14000,
       },
       {
-        id: "hel-fresas-mm",
-        name: "Fresas con M&M",
-        description: "Fresas con crema, chantilly y M&M.",
-        image: "/menu/hel-fresas-mm.webp",
-        sizes: [
-          { label: "13 oz", price: 14000 },
-          { label: "16 oz", price: 17000 },
-        ],
-      },
-      {
-        id: "hel-fresas-chocolate",
-        name: "Fresas con chocolate",
-        description: "Fresas con crema, chocolate y toppings.",
-        image: "/menu/fresas-chocolate.webp",
-        sizes: [
-          { label: "13 oz", price: 14000 },
-          { label: "16 oz", price: 17000 },
-        ],
-      },
-      {
-        id: "hel-fresas-frambuesa",
-        name: "Fresas con frambuesa",
-        description: "Fresas con frambuesa, crema y toppings.",
-        image: "/menu/fresas-frambuesa.webp",
-        sizes: [
-          { label: "13 oz", price: 15000 },
-          { label: "16 oz", price: 18000 },
-        ],
-      },
-      {
-        id: "hel-fresa-banano",
-        name: "Fresa banano",
-        description: "Fresas con banano, crema y toppings.",
-        image: "/menu/fresa-banano.webp",
-        publicOnly: true,
-        sizes: [
-          { label: "13 oz", price: 14000 },
-          { label: "16 oz", price: 18000 },
-        ],
-      },
-      {
-        id: "hel-fresas-chocorramo",
-        name: "Fresas con chocorramo",
-        description: "Fresas con crema, chantilly y chocorramo.",
-        image: "/menu/fresas-chocorramo.webp",
-        sizes: [
-          { label: "13 oz", price: 14000 },
-          { label: "16 oz", price: 17000 },
-        ],
-      },
-      {
         id: "hel-duraznos-crema",
         name: "Duraznos con crema",
         description: "Duraznos frescos con crema y chantilly.",
@@ -286,6 +236,65 @@ export const MENU_CATEGORIES: MenuCategory[] = [
         name: "Granizado Frutos Amarillos",
         description: "Granizado sabor frutos amarillos.",
         price: 11000,
+      },
+    ],
+  },
+  {
+    id: "fresas",
+    label: "Fresas",
+    tagline: "Fresas frescas con crema y deliciosos toppings",
+    accentColor: "#E11D48",
+    items: [
+      {
+        id: "hel-fresas-mm",
+        name: "Fresas con M&M",
+        description: "Fresas con crema, chantilly y M&M.",
+        image: "/menu/hel-fresas-mm.webp",
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 17000 },
+        ],
+      },
+      {
+        id: "hel-fresas-chocolate",
+        name: "Fresas con chocolate",
+        description: "Fresas con crema, chocolate y toppings.",
+        image: "/menu/fresas-chocolate.webp",
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 17000 },
+        ],
+      },
+      {
+        id: "hel-fresas-frambuesa",
+        name: "Fresas con frambuesa",
+        description: "Fresas con frambuesa, crema y toppings.",
+        image: "/menu/fresas-frambuesa.webp",
+        sizes: [
+          { label: "13 oz", price: 15000 },
+          { label: "16 oz", price: 18000 },
+        ],
+      },
+      {
+        id: "hel-fresa-banano",
+        name: "Fresa banano",
+        description: "Fresas con banano, crema y toppings.",
+        image: "/menu/fresa-banano.webp",
+        publicOnly: true,
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 18000 },
+        ],
+      },
+      {
+        id: "hel-fresas-chocorramo",
+        name: "Fresas con chocorramo",
+        description: "Fresas con crema, chantilly y chocorramo.",
+        image: "/menu/fresas-chocorramo.webp",
+        sizes: [
+          { label: "13 oz", price: 14000 },
+          { label: "16 oz", price: 17000 },
+        ],
       },
     ],
   },

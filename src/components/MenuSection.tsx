@@ -21,10 +21,11 @@ import { useCart } from "@/context/CartContext";
 const NAV_OFFSET = 112;
 
 export function MenuSection({ categories }: { categories: MenuCategory[] }) {
+  const visibleCategories = categories.filter((cat) => cat.items.length > 0);
   const sectionRef = useRef<HTMLElement>(null);
   const categoryRefs = useRef<Partial<Record<MenuCategoryId, HTMLElement>>>({});
   const [activeCategory, setActiveCategory] = useState<MenuCategoryId>(
-    categories[0]?.id ?? "helados",
+    visibleCategories[0]?.id ?? "helados",
   );
   const { addItem } = useCart();
 
@@ -97,7 +98,7 @@ export function MenuSection({ categories }: { categories: MenuCategory[] }) {
           className="sticky top-[68px] z-40 -mx-4 mb-8 border-b border-white/5 bg-cinema-dark/95 backdrop-blur-md sm:top-[72px] sm:mb-10"
         >
           <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 py-2.5 sm:flex-wrap sm:overflow-visible sm:py-3">
-            {categories.map((cat) => (
+            {visibleCategories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
@@ -116,7 +117,7 @@ export function MenuSection({ categories }: { categories: MenuCategory[] }) {
         </nav>
 
         <div className="space-y-10 sm:space-y-16 md:space-y-20">
-          {categories.map((category) => (
+          {visibleCategories.map((category) => (
             <MenuCategoryBlock
               key={category.id}
               category={category}
@@ -190,9 +191,11 @@ function MenuItemCard({
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>(
     item.sizes?.[0],
   );
+  const [imgError, setImgError] = useState(false);
 
   const displayPrice = getLinePrice(item, selectedSize);
   const hasSizes = Boolean(item.sizes?.length);
+  const hasValidImage = Boolean(item.image && item.image.trim().length > 0 && !imgError);
 
   return (
     <article
@@ -203,24 +206,41 @@ function MenuItemCard({
         } as CSSProperties
       }
     >
-      {item.image ? (
+      {hasValidImage ? (
         <div className="relative aspect-[4/5] w-full overflow-hidden bg-cinema-dark">
           <Image
-            src={item.image}
+            src={item.image!}
             alt={item.name}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover"
             loading="lazy"
+            onError={() => setImgError(true)}
           />
         </div>
       ) : (
-        <div
-          className="h-1.5 w-full"
-          style={{
-            background: `linear-gradient(90deg, ${accentColor}, ${accentColor}66)`,
-          }}
-        />
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-cinema-dark/80 flex flex-col items-center justify-center p-6 text-center border-b border-white/5">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 shadow-inner"
+            style={{
+              backgroundColor: `${accentColor}25`,
+              border: `1px solid ${accentColor}40`,
+            }}
+          >
+            <span className="text-2xl select-none" role="img" aria-label="Logo">
+              🎬
+            </span>
+          </div>
+          <span className="text-[11px] uppercase tracking-widest text-white/40 font-medium">
+            Granizados de Película
+          </span>
+          <div
+            className="absolute bottom-0 inset-x-0 h-1"
+            style={{
+              background: `linear-gradient(90deg, ${accentColor}, ${accentColor}66)`,
+            }}
+          />
+        </div>
       )}
 
       <div className="flex flex-1 flex-col p-4 sm:p-5">

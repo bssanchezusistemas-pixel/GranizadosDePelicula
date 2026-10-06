@@ -88,7 +88,7 @@ export function ProductosList({ categories }: { categories: MenuCategory[] }) {
                   className="flex gap-3 rounded-xl border border-white/10 bg-cinema-gray p-3 transition hover:border-white/25"
                 >
                   <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-cinema-dark">
-                    {item.image ? (
+                    {item.image && item.image.trim().length > 0 ? (
                       <Image
                         src={item.image}
                         alt=""
@@ -97,7 +97,7 @@ export function ProductosList({ categories }: { categories: MenuCategory[] }) {
                         sizes="64px"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-[10px] text-white/30">
+                      <div className="flex h-full items-center justify-center text-[10px] text-white/30 text-center p-1">
                         Sin foto
                       </div>
                     )}
