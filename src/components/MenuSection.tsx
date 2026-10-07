@@ -11,12 +11,14 @@ import {
 import {
   formatCOP,
   getLinePrice,
+  MENU_CATEGORIES,
   type MenuCategory,
   type MenuCategoryId,
   type MenuItem,
   type MenuItemSize,
 } from "@/data/menu";
 import { useCart } from "@/context/CartContext";
+import { ProductCustomizationModal } from "@/components/ProductCustomizationModal";
 
 const NAV_OFFSET = 112;
 
@@ -27,6 +29,12 @@ export function MenuSection({ categories }: { categories: MenuCategory[] }) {
   const [activeCategory, setActiveCategory] = useState<MenuCategoryId>(
     visibleCategories[0]?.id ?? "helados",
   );
+  const [customizingItem, setCustomizingItem] = useState<{
+    item: MenuItem;
+    initialSize?: MenuItemSize;
+    flyFrom?: DOMRect;
+    accentColor?: string;
+  } | null>(null);
   const { addItem } = useCart();
 
   const scrollToCategory = useCallback((id: MenuCategoryId) => {
@@ -124,11 +132,42 @@ export function MenuSection({ categories }: { categories: MenuCategory[] }) {
               categoryRef={(el) => {
                 if (el) categoryRefs.current[category.id] = el;
               }}
-              onAddItem={addItem}
+              onOpenCustomize={(item, selectedSize, flyFrom, accentColor) => {
+                setCustomizingItem({
+                  item,
+                  initialSize: selectedSize,
+                  flyFrom,
+                  accentColor,
+                });
+              }}
             />
           ))}
         </div>
       </div>
+
+      {customizingItem && (
+        <ProductCustomizationModal
+          item={customizingItem.item}
+          initialSize={customizingItem.initialSize}
+          availableAdditions={(() => {
+            const dbAdds = categories.find((c) => c.id === "adiciones")?.items;
+            if (dbAdds && dbAdds.length > 0) return dbAdds;
+            return MENU_CATEGORIES.find((c) => c.id === "adiciones")?.items ?? [];
+          })()}
+          accentColor={customizingItem.accentColor}
+          onClose={() => setCustomizingItem(null)}
+          onConfirm={({ selectedSize, adiciones, exclusiones, notas, flyFrom }) => {
+            addItem(customizingItem.item, {
+              selectedSize,
+              adiciones,
+              exclusiones,
+              notas,
+              flyFrom: flyFrom ?? customizingItem.flyFrom,
+            });
+            setCustomizingItem(null);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -136,11 +175,16 @@ export function MenuSection({ categories }: { categories: MenuCategory[] }) {
 function MenuCategoryBlock({
   category,
   categoryRef,
-  onAddItem,
+  onOpenCustomize,
 }: {
   category: MenuCategory;
   categoryRef: (el: HTMLElement | null) => void;
-  onAddItem: ReturnType<typeof useCart>["addItem"];
+  onOpenCustomize: (
+    item: MenuItem,
+    selectedSize?: MenuItemSize,
+    flyFrom?: DOMRect,
+    accentColor?: string,
+  ) => void;
 }) {
   const accent = category.accentColor ?? "#ff0033";
 
@@ -169,8 +213,8 @@ function MenuCategoryBlock({
             key={item.id}
             item={item}
             accentColor={accent}
-            onAdd={(selectedSize, flyFrom) =>
-              onAddItem(item, { selectedSize, flyFrom })
+            onOpenCustomize={(selectedSize, flyFrom) =>
+              onOpenCustomize(item, selectedSize, flyFrom, accent)
             }
           />
         ))}
@@ -182,11 +226,11 @@ function MenuCategoryBlock({
 function MenuItemCard({
   item,
   accentColor,
-  onAdd,
+  onOpenCustomize,
 }: {
   item: MenuItem;
   accentColor: string;
-  onAdd: (selectedSize?: MenuItemSize, flyFrom?: DOMRect) => void;
+  onOpenCustomize: (selectedSize?: MenuItemSize, flyFrom?: DOMRect) => void;
 }) {
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>(
     item.sizes?.[0],
@@ -207,19 +251,29 @@ function MenuItemCard({
       }
     >
       {hasValidImage ? (
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-cinema-dark">
+        <div
+          onClick={(e) =>
+            onOpenCustomize(selectedSize, e.currentTarget.getBoundingClientRect())
+          }
+          className="relative aspect-[4/5] w-full cursor-pointer overflow-hidden bg-cinema-dark"
+        >
           <Image
             src={item.image!}
             alt={item.name}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover"
+            className="object-cover transition duration-300 group-hover:scale-105"
             loading="lazy"
             onError={() => setImgError(true)}
           />
         </div>
       ) : (
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-cinema-dark/80 flex flex-col items-center justify-center p-6 text-center border-b border-white/5">
+        <div
+          onClick={(e) =>
+            onOpenCustomize(selectedSize, e.currentTarget.getBoundingClientRect())
+          }
+          className="relative aspect-[4/5] w-full cursor-pointer overflow-hidden bg-cinema-dark/80 flex flex-col items-center justify-center p-6 text-center border-b border-white/5"
+        >
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 shadow-inner"
             style={{
@@ -246,7 +300,12 @@ function MenuItemCard({
       <div className="flex flex-1 flex-col p-4 sm:p-5">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h4 className="font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white sm:text-lg">
+            <h4
+              onClick={(e) =>
+                onOpenCustomize(selectedSize, e.currentTarget.getBoundingClientRect())
+              }
+              className="cursor-pointer font-[family-name:var(--font-display)] text-base uppercase leading-tight text-white transition hover:text-white/80 sm:text-lg"
+            >
               {item.name}
             </h4>
             {item.badge && (
@@ -306,7 +365,7 @@ function MenuItemCard({
         <button
           type="button"
           onClick={(e) =>
-            onAdd(selectedSize, e.currentTarget.getBoundingClientRect())
+            onOpenCustomize(selectedSize, e.currentTarget.getBoundingClientRect())
           }
           disabled={hasSizes && !selectedSize}
           className="mt-auto w-full rounded-full border py-2.5 text-[11px] uppercase tracking-[0.2em] text-white transition hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"

@@ -847,11 +847,52 @@ export function formatCOP(amount: number): string {
   }).format(amount);
 }
 
+export interface CartCustomization {
+  adiciones?: string[];
+  exclusiones?: string[];
+  notas?: string;
+}
+
 export function getCartLineId(
   item: MenuItem,
   selectedSize?: MenuItemSize,
+  customization?: CartCustomization,
 ): string {
-  return selectedSize ? `${item.id}::${selectedSize.label}` : item.id;
+  const base = selectedSize ? `${item.id}::${selectedSize.label}` : item.id;
+  if (!customization) return base;
+
+  const adds = (customization.adiciones ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter(
+      (item, index, self) =>
+        index ===
+        self.findIndex(
+          (other) => other.toLowerCase() === item.toLowerCase(),
+        ),
+    )
+    .sort();
+  const excs = (customization.exclusiones ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter(
+      (item, index, self) =>
+        index ===
+        self.findIndex(
+          (other) => other.toLowerCase() === item.toLowerCase(),
+        ),
+    )
+    .sort();
+  const notas = (customization.notas ?? "")
+    .trim()
+    .replace(/^["'“”«»]+|["'“”«»]+$/g, "")
+    .trim();
+
+  if (adds.length === 0 && excs.length === 0 && !notas) {
+    return base;
+  }
+
+  return `${base}::${JSON.stringify({ a: adds, e: excs, n: notas })}`;
 }
 
 export function getLinePrice(

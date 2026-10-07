@@ -78,24 +78,49 @@ export function CartDrawer() {
                   return (
                     <li
                       key={line.lineId}
-                      className="flex items-center justify-between gap-3 border-b border-white/5 pb-4"
+                      className="flex items-start justify-between gap-3 border-b border-white/5 pb-4"
                     >
-                      <div>
-                        <p className="font-medium text-white">{displayName}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-white break-words">{displayName}</p>
                         <p className="text-xs text-white/45">
                           {formatCOP(unitPrice)} c/u
                         </p>
+
+                        {((line.adiciones && line.adiciones.length > 0) ||
+                          (line.exclusiones && line.exclusiones.length > 0) ||
+                          (line.notas && line.notas.trim().length > 0)) && (
+                          <div className="mt-2 space-y-1 rounded-xl border border-white/5 bg-white/[0.03] p-2.5 text-xs">
+                            {line.adiciones && line.adiciones.length > 0 && (
+                              <p className="text-white/80 break-words">
+                                <span className="font-semibold text-neon">+ Adiciones: </span>
+                                {line.adiciones.join(", ")}
+                              </p>
+                            )}
+                            {line.exclusiones && line.exclusiones.length > 0 && (
+                              <p className="text-white/80 break-words">
+                                <span className="font-semibold text-amber-400">Sin: </span>
+                                {line.exclusiones.join(", ")}
+                              </p>
+                            )}
+                            {line.notas && line.notas.trim().length > 0 && (
+                              <p className="text-white/70 italic break-words whitespace-pre-line">
+                                <span className="font-semibold not-italic text-white/80">Nota: </span>
+                                &ldquo;{line.notas.trim().replace(/^["'“”«»]+|["'“”«»]+$/g, "").trim()}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex shrink-0 items-center gap-3 pt-1">
                         <button
                           type="button"
                           onClick={() => removeItem(line.lineId)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-white transition hover:border-white/40"
                           aria-label={`Quitar ${displayName}`}
                         >
                           −
                         </button>
-                        <span className="w-6 text-center text-sm text-white">
+                        <span className="w-6 text-center text-sm font-semibold text-white">
                           {line.quantity}
                         </span>
                         <button
@@ -103,9 +128,12 @@ export function CartDrawer() {
                           onClick={() =>
                             addItem(line.item, {
                               selectedSize: line.selectedSize,
+                              adiciones: line.adiciones,
+                              exclusiones: line.exclusiones,
+                              notas: line.notas,
                             })
                           }
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-neon text-neon"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-neon text-neon transition hover:bg-neon hover:text-white"
                           aria-label={`Agregar ${displayName}`}
                         >
                           +

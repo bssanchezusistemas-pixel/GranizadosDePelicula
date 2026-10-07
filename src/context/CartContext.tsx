@@ -26,10 +26,16 @@ export interface CartLine {
   item: MenuItem;
   quantity: number;
   selectedSize?: MenuItemSize;
+  adiciones?: string[];
+  exclusiones?: string[];
+  notas?: string;
 }
 
 export interface AddToCartOptions {
   selectedSize?: MenuItemSize;
+  adiciones?: string[];
+  exclusiones?: string[];
+  notas?: string;
   flyFrom?: DOMRect;
 }
 
@@ -104,7 +110,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const lineId = getCartLineId(item, selectedSize);
+    const validAdiciones = options?.adiciones
+      ? options.adiciones
+          .map((a) => a.trim())
+          .filter(Boolean)
+          .filter(
+            (item, index, self) =>
+              index ===
+              self.findIndex(
+                (other) => other.toLowerCase() === item.toLowerCase(),
+              ),
+          )
+      : undefined;
+
+    const validExclusiones = options?.exclusiones
+      ? options.exclusiones
+          .map((e) => e.trim())
+          .filter(Boolean)
+          .filter(
+            (item, index, self) =>
+              index ===
+              self.findIndex(
+                (other) => other.toLowerCase() === item.toLowerCase(),
+              ),
+          )
+      : undefined;
+
+    const validNotas = options?.notas
+      ?.trim()
+      .replace(/^["'“”«»]+|["'“”«»]+$/g, "")
+      .trim();
+
+    const hasAdiciones = Boolean(validAdiciones && validAdiciones.length > 0);
+    const hasExclusiones = Boolean(validExclusiones && validExclusiones.length > 0);
+    const hasNotas = Boolean(validNotas && validNotas.length > 0);
+
+    const customization =
+      hasAdiciones || hasExclusiones || hasNotas
+        ? {
+            adiciones: hasAdiciones ? validAdiciones : undefined,
+            exclusiones: hasExclusiones ? validExclusiones : undefined,
+            notas: hasNotas ? validNotas : undefined,
+          }
+        : undefined;
+
+    const lineId = getCartLineId(item, selectedSize, customization);
 
     setLines((prev) => {
       const existing = prev.find((line) => line.lineId === lineId);
@@ -115,7 +165,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : line,
         );
       }
-      return [...prev, { lineId, item, quantity: 1, selectedSize }];
+      return [
+        ...prev,
+        {
+          lineId,
+          item,
+          quantity: 1,
+          selectedSize,
+          adiciones: customization?.adiciones,
+          exclusiones: customization?.exclusiones,
+          notas: customization?.notas,
+        },
+      ];
     });
 
     if (options?.flyFrom) {
@@ -184,7 +245,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .map((line) => {
         const unitPrice = getLinePrice(line.item, line.selectedSize);
         const name = formatCartLineName(line.item, line.selectedSize);
-        return `${line.quantity}x ${name} — ${formatCOP(unitPrice * line.quantity)}`;
+        const header = `${line.quantity}x ${name} — ${formatCOP(unitPrice * line.quantity)}`;
+
+        const details: string[] = [];
+        if (line.adiciones && line.adiciones.length > 0) {
+          details.push(`  • Adiciones: ${line.adiciones.join(", ")}`);
+        }
+        if (line.exclusiones && line.exclusiones.length > 0) {
+          details.push(`  • Sin: ${line.exclusiones.join(", ")}`);
+        }
+        if (line.notas && line.notas.trim().length > 0) {
+          const singleLineNota = line.notas
+            .trim()
+            .replace(/^["'“”«»]+|["'“”«»]+$/g, "")
+            .replace(/\r?\n+/g, ", ");
+          details.push(`  • Nota: "${singleLineNota}"`);
+        }
+
+        if (details.length > 0) {
+          return `${header}\n${details.join("\n")}`;
+        }
+        return header;
       })
       .join("\n");
 
