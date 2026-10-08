@@ -571,6 +571,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "add-cheddar", name: "Cama de Queso Cheddar", description: "Cama de queso cheddar.", price: 10000 },
       { id: "add-codorniz", name: "Huevos de Codorniz", description: "Huevos de codorniz extra.", price: 3000 },
       { id: "add-plantano", name: "Plátano", description: "Porción extra de plátano.", price: 3000 },
+      { id: "adic-adicion-de-queso-para-los-gran-1i3z", name: "Adición de Queso", description: "Porción de queso extra.", price: 2000 },
     ],
   },
   {
@@ -847,8 +848,13 @@ export function formatCOP(amount: number): string {
   }).format(amount);
 }
 
+export interface CartAdditionItem {
+  name: string;
+  price: number;
+}
+
 export interface CartCustomization {
-  adiciones?: string[];
+  adiciones?: CartAdditionItem[];
   exclusiones?: string[];
   notas?: string;
 }
@@ -862,31 +868,32 @@ export function getCartLineId(
   if (!customization) return base;
 
   const adds = (customization.adiciones ?? [])
-    .map((s) => s.trim())
-    .filter(Boolean)
+    .filter((a) => a && a.name && a.name.trim().length > 0)
+    .map((a) => ({ name: a.name.trim().toLowerCase(), price: Number(a.price) || 0 }))
     .filter(
-      (item, index, self) =>
+      (entry, index, self) =>
         index ===
         self.findIndex(
-          (other) => other.toLowerCase() === item.toLowerCase(),
+          (other) => other.name === entry.name,
         ),
     )
-    .sort();
+    .sort((a, b) => a.name.localeCompare(b.name));
   const excs = (customization.exclusiones ?? [])
-    .map((s) => s.trim())
+    .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
     .filter(
       (item, index, self) =>
         index ===
         self.findIndex(
-          (other) => other.toLowerCase() === item.toLowerCase(),
+          (other) => other === item,
         ),
     )
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
   const notas = (customization.notas ?? "")
     .trim()
     .replace(/^["'“”«»]+|["'“”«»]+$/g, "")
-    .trim();
+    .trim()
+    .toLowerCase();
 
   if (adds.length === 0 && excs.length === 0 && !notas) {
     return base;
@@ -898,10 +905,18 @@ export function getCartLineId(
 export function getLinePrice(
   item: MenuItem,
   selectedSize?: MenuItemSize,
+  adiciones?: CartAdditionItem[],
 ): number {
-  if (selectedSize) return selectedSize.price;
-  if (item.price !== undefined) return item.price;
-  return item.sizes?.[0]?.price ?? 0;
+  const basePrice = selectedSize
+    ? selectedSize.price
+    : item.price !== undefined
+      ? item.price
+      : (item.sizes?.[0]?.price ?? 0);
+  const additionsTotal = (adiciones ?? []).reduce(
+    (acc, a) => acc + (a.price || 0),
+    0,
+  );
+  return basePrice + additionsTotal;
 }
 
 export function formatCartLineName(

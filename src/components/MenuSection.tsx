@@ -23,7 +23,9 @@ import { ProductCustomizationModal } from "@/components/ProductCustomizationModa
 const NAV_OFFSET = 112;
 
 export function MenuSection({ categories }: { categories: MenuCategory[] }) {
-  const visibleCategories = categories.filter((cat) => cat.items.length > 0);
+  const visibleCategories = categories.filter(
+    (cat) => cat.items.length > 0 && cat.id !== "adiciones",
+  );
   const sectionRef = useRef<HTMLElement>(null);
   const categoryRefs = useRef<Partial<Record<MenuCategoryId, HTMLElement>>>({});
   const [activeCategory, setActiveCategory] = useState<MenuCategoryId>(

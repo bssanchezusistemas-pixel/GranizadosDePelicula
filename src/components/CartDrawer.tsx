@@ -69,7 +69,11 @@ export function CartDrawer() {
             <>
               <ul className="space-y-4">
                 {lines.map((line) => {
-                  const unitPrice = getLinePrice(line.item, line.selectedSize);
+                  const unitPrice = getLinePrice(
+                    line.item,
+                    line.selectedSize,
+                    line.adiciones,
+                  );
                   const displayName = formatCartLineName(
                     line.item,
                     line.selectedSize,
@@ -93,7 +97,13 @@ export function CartDrawer() {
                             {line.adiciones && line.adiciones.length > 0 && (
                               <p className="text-white/80 break-words">
                                 <span className="font-semibold text-neon">+ Adiciones: </span>
-                                {line.adiciones.join(", ")}
+                                {line.adiciones
+                                  .map((a) =>
+                                    a.price > 0
+                                      ? `${a.name} (+${formatCOP(a.price)})`
+                                      : a.name,
+                                  )
+                                  .join(", ")}
                               </p>
                             )}
                             {line.exclusiones && line.exclusiones.length > 0 && (

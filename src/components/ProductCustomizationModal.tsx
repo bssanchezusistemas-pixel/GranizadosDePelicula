@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import {
   formatCOP,
   getLinePrice,
+  type CartAdditionItem,
   type MenuItem,
   type MenuItemSize,
 } from "@/data/menu";
@@ -98,7 +99,7 @@ interface ProductCustomizationModalProps {
   onClose: () => void;
   onConfirm: (customization: {
     selectedSize?: MenuItemSize;
-    adiciones: string[];
+    adiciones: CartAdditionItem[];
     exclusiones: string[];
     notas?: string;
     flyFrom?: DOMRect;
@@ -116,7 +117,7 @@ export function ProductCustomizationModal({
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>(
     initialSize ?? item.sizes?.[0],
   );
-  const [selectedAdditions, setSelectedAdditions] = useState<string[]>([]);
+  const [selectedAdditions, setSelectedAdditions] = useState<CartAdditionItem[]>([]);
   const [selectedExclusions, setSelectedExclusions] = useState<string[]>([]);
   const [customExclusionInput, setCustomExclusionInput] = useState("");
   const [notes, setNotes] = useState("");
@@ -143,7 +144,7 @@ export function ProductCustomizationModal({
   }, [onClose]);
 
   const hasSizes = Boolean(item.sizes && item.sizes.length > 1);
-  const displayPrice = getLinePrice(item, selectedSize);
+  const displayPrice = getLinePrice(item, selectedSize, selectedAdditions);
   const hasValidImage = Boolean(item.image && item.image.trim().length > 0 && !imgError);
 
   // Filter out the item itself if it happens to be in the additions category, deduplicating names
@@ -162,10 +163,24 @@ export function ProductCustomizationModal({
         ),
     );
 
-  function toggleAddition(name: string) {
-    setSelectedAdditions((prev) =>
-      prev.includes(name) ? prev.filter((a) => a !== name) : [...prev, name],
-    );
+  function toggleAddition(addition: MenuItem) {
+    setSelectedAdditions((prev) => {
+      const exists = prev.some(
+        (a) => a.name.toLowerCase() === addition.name.trim().toLowerCase(),
+      );
+      if (exists) {
+        return prev.filter(
+          (a) => a.name.toLowerCase() !== addition.name.trim().toLowerCase(),
+        );
+      }
+      return [
+        ...prev,
+        {
+          name: addition.name.trim(),
+          price: addition.price ?? addition.sizes?.[0]?.price ?? 0,
+        },
+      ];
+    });
   }
 
   function toggleExclusion(rawName: string) {
@@ -340,7 +355,7 @@ export function ProductCustomizationModal({
             </div>
           )}
 
-          {/* 2. Adiciones opcionales (sin precio numérico) */}
+          {/* 2. Adiciones opcionales */}
           {additionsList.length > 0 && (
             <div>
               <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -352,16 +367,21 @@ export function ProductCustomizationModal({
                 </span>
               </div>
               <p className="mb-2.5 text-[11px] text-white/45">
-                Personaliza con adiciones del menú (el valor se confirma por WhatsApp).
+                Suma adiciones a tu preparación con su valor adicional:
               </p>
               <div className="flex flex-wrap gap-2">
                 {additionsList.map((addition) => {
-                  const isSelected = selectedAdditions.includes(addition.name);
+                  const isSelected = selectedAdditions.some(
+                    (a) =>
+                      a.name.toLowerCase() === addition.name.trim().toLowerCase(),
+                  );
+                  const addPrice =
+                    addition.price ?? addition.sizes?.[0]?.price ?? 0;
                   return (
                     <button
                       key={addition.id}
                       type="button"
-                      onClick={() => toggleAddition(addition.name)}
+                      onClick={() => toggleAddition(addition)}
                       aria-pressed={isSelected}
                       className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
                         isSelected
@@ -376,7 +396,16 @@ export function ProductCustomizationModal({
                       >
                         {isSelected ? "✓" : "+"}
                       </span>
-                      {addition.name}
+                      <span>{addition.name}</span>
+                      {addPrice > 0 && (
+                        <span
+                          className={`text-[11px] ${
+                            isSelected ? "text-neon font-semibold" : "text-white/45"
+                          }`}
+                        >
+                          (+{formatCOP(addPrice)})
+                        </span>
+                      )}
                     </button>
                   );
                 })}

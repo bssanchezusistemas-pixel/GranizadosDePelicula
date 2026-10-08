@@ -13,6 +13,7 @@ import {
   formatCartLineName,
   getCartLineId,
   getLinePrice,
+  type CartAdditionItem,
   type MenuItem,
   type MenuItemSize,
 } from "@/data/menu";
@@ -26,14 +27,14 @@ export interface CartLine {
   item: MenuItem;
   quantity: number;
   selectedSize?: MenuItemSize;
-  adiciones?: string[];
+  adiciones?: CartAdditionItem[];
   exclusiones?: string[];
   notas?: string;
 }
 
 export interface AddToCartOptions {
   selectedSize?: MenuItemSize;
-  adiciones?: string[];
+  adiciones?: CartAdditionItem[];
   exclusiones?: string[];
   notas?: string;
   flyFrom?: DOMRect;
@@ -112,15 +113,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const validAdiciones = options?.adiciones
       ? options.adiciones
-          .map((a) => a.trim())
-          .filter(Boolean)
+          .filter(
+            (a) =>
+              a &&
+              typeof a.name === "string" &&
+              a.name.trim().length > 0,
+          )
+          .map((a) => ({
+            name: a.name.trim(),
+            price: Number(a.price) || 0,
+          }))
           .filter(
             (item, index, self) =>
               index ===
               self.findIndex(
-                (other) => other.toLowerCase() === item.toLowerCase(),
+                (other) => other.name.toLowerCase() === item.name.toLowerCase(),
               ),
           )
+          .sort((a, b) => a.name.localeCompare(b.name))
       : undefined;
 
     const validExclusiones = options?.exclusiones
@@ -134,6 +144,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 (other) => other.toLowerCase() === item.toLowerCase(),
               ),
           )
+          .sort((a, b) => a.localeCompare(b))
       : undefined;
 
     const validNotas = options?.notas
@@ -214,7 +225,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () =>
       lines.reduce(
         (sum, line) =>
-          sum + getLinePrice(line.item, line.selectedSize) * line.quantity,
+          sum +
+          getLinePrice(line.item, line.selectedSize, line.adiciones) *
+            line.quantity,
         0,
       ),
     [lines],
@@ -243,13 +256,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const itemsText = lines
       .map((line) => {
-        const unitPrice = getLinePrice(line.item, line.selectedSize);
+        const unitPrice = getLinePrice(line.item, line.selectedSize, line.adiciones);
         const name = formatCartLineName(line.item, line.selectedSize);
         const header = `${line.quantity}x ${name} — ${formatCOP(unitPrice * line.quantity)}`;
 
         const details: string[] = [];
         if (line.adiciones && line.adiciones.length > 0) {
-          details.push(`  • Adiciones: ${line.adiciones.join(", ")}`);
+          const adicionesStr = line.adiciones
+            .map((a) =>
+              a.price > 0 ? `${a.name} (+${formatCOP(a.price)})` : a.name,
+            )
+            .join(", ");
+          details.push(`  • Adiciones: ${adicionesStr}`);
         }
         if (line.exclusiones && line.exclusiones.length > 0) {
           details.push(`  • Sin: ${line.exclusiones.join(", ")}`);
